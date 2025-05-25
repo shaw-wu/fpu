@@ -1,138 +1,32 @@
 `timescale 1ns/1ps
-module testbench(
-	 output reg				 arready,
-	 output reg [31:0] rdata,
-	 output reg        rvalid,
-	 output reg        rlast,
-	 output reg [1:0]  rresp,
-	 output reg        awready,
-	 output reg        wready,
-	 output reg        bvalid,
-	 output reg [1:0]  bresp,
-	 output reg  r_overflow,
-	 output reg  w_overflow,
-	 output irq
-);
+module testbench;
 
-	reg rstn;
-	reg clk;
-	reg [31:0] araddr;
-	reg				 arvalid;
-	reg [2:0]  arsize;
-  reg [7:0]  arlen;
-	reg [1:0]  arburst;
-	reg        rready;
-	reg [31:0] awaddr;
-	reg        awvalid;
-	reg [2:0]  awsize;
-  reg [7:0]  awlen;
-	reg [1:0]  awburst;
-	reg [31:0] wdata;
-	reg        wvalid;
-	reg [3:0]  wstrb;
-	reg        wlast;
-	reg        bready;
-	reg [7:0]  src;
+reg [31:0] fp;
+/* verilator lint_off UNUSED */
+wire sign              ; 
+wire [8:0]  exp				 ; 
+wire [23:0] sig				 ; 
+wire isNAN						 ; 
+wire isINf       			 ; 
+wire isZero      			 ; 
+wire isNormalize 			 ; 
+wire isUnormalize			 ;
+/* verilator lint_off UNUSED */
 
-	wire _arready;
-	wire [31:0] _rdata;
-	wire _rvalid;
-	wire _rlast;
-	wire [1:0] _rresp;
-	wire _awready;
-	wire _wready;
-	wire _bvalid;
-	wire [1:0] _bresp;
-	wire _r_overflow;
-	wire _w_overflow;
-	wire _irq;
-
-always @(*) begin
-	arready = _arready;
-	rdata = _rdata;
-	rvalid = _rvalid;
-	rlast = _rlast;
-	rresp = _rresp;
-	awready = _awready;
-	wready = _wready;
-	bvalid = _bvalid;
-	bresp = _bresp;
-	r_overflow = _r_overflow;
-	w_overflow = _w_overflow;
-	irq = _irq;
-end
-
-axi4_plic_top l1(
-	.PRESETn(rstn),
-	.PCLK(clk),
-	.araddr(araddr),
-	.arvalid(arvalid),
-	.arready(_arready),
-	.arsize(arsize),
-	.arlen(arlen),
-	.arburst(arburst),
-	.rdata(_rdata),
-	.rvalid(_rvalid),
-	.rready(rready),
-	.rlast(_rlast),
-	.rresp(_rresp),
-	.awaddr(awaddr),
-	.awvalid(awvalid),
-	.awready(_awready),
-	.awsize(awsize),
-	.awlen(awlen),
-	.awburst(awburst),
-	.wdata(wdata),
-	.wvalid(wvalid),
-	.wready(_wready),
-	.wstrb(wstrb),
-	.wlast(wlast),
-	.bvalid(_bvalid),
-	.bready(bready),
-	.bresp(_bresp),
-	.src(src),
-	.irq(_irq),
-	.r_overflow(_r_overflow),
-	.w_overflow(_w_overflow)
+torecFN l1 (
+	.fp          (fp          ), 
+	.sign        (sign        ),
+	.exp				 (exp				 ),
+	.sig				 (sig				 ),
+	.isNAN       (isNAN       ),
+	.isINf       (isINf       ),
+	.isZero      (isZero      ),
+	.isNormalize (isNormalize ),
+	.isUnormalize(isUnormalize)
 );
 
 initial begin
-	clk = 1;
-	forever begin
-		#1 clk = ~clk;
-	end
-end
-
-initial begin
-	src = 0;
-	rstn = 0;
-	#2048
-	rstn = 1;
-	#20
-	awvalid = 1;
-	awaddr = 32'h10000004;
-	awburst = 2'b01;
-	awlen = 0;
-	awsize = 2;
-	#4
-	awvalid = 0;
-	#10
-	wvalid = 1;
-	wdata = 32'h00f1001f;
-	wstrb = 4'b1111;
-	wlast = 1;
-	#10
-	bready = 1;
-  #10
-	bready = 0;
-	
-	#50
-	arvalid = 1;
-	araddr = 32'h10000004;
-	arburst = 2'b01;
-	arlen = 1;
-	arsize = 2;
-	rready = 1;
+	#2 fp = 32'b1_1111_1111_000_0000_0000_0000_0000_0000;
 	#50 $finish;
 end
 
