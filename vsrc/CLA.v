@@ -2,9 +2,9 @@
 module CLA (
 	input  [31:0] a		,
 	input	 [31:0] b	 	,
-	input									  cin	,
+	input				  cin	,
 	output [31:0] sum	,
-	output									cout
+	output			  cout
 );
 
 wire [31:0] g, p;

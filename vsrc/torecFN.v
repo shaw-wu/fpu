@@ -3,7 +3,7 @@ module torecFN #(
 	parameter FP_BITS     = 32,
 	parameter EXP_BITS    = 8 ,
 	parameter FRA_BITS    = 23,
-	parameter SIG_BITS    = 24,
+	parameter SIG_BITS    = 32,
 	parameter RECEXP_BITS = 9 ,
 	parameter EXP_OFFSET  = 9'b1_0000_0001
 )(
@@ -46,23 +46,27 @@ LZD_5 lzd (
 assign n = pos + 1;  
 
 function [RECEXP_BITS-1:0] fill_exp(input [2:0] top);
-	fill_exp = {top , {(RECEXP_BITS-3){1'b0}}};
+	fill_exp = {top , {(RECEXP_BITS-3){1'b1}}};
+endfunction;	
+
+function [SIG_BITS-1:0] fill_sig(input [FRA_BITS-1:0] fr);
+	fill_sig = {3'b001, fr, {(SIG_BITS-FRA_BITS-3){1'b0}}};
 endfunction;	
                      
 //EXP/SIG logic      
-assign exp = isNAN				? fill_exp(3'b111)																												:
-						 isINf  			? fill_exp(3'b110)																												:
-						 isZero 			? fill_exp(3'b000)																												:
+assign exp = isNAN				? fill_exp(3'b111)																																	:
+						 isINf  			? fill_exp(3'b110)																																	:
+						 isZero 			? fill_exp(3'b000)																																	:
 						 isUnormalize ? (EXP_OFFSET + {{(RECEXP_BITS-1){1'b0}}, 1'b1} - {{(RECEXP_BITS-FP_LOG){1'b0}}, n}):
-						 isNormalize  ? ({1'b0, exp_st} + EXP_OFFSET)																						:
-			                      fill_exp(3'b111)                       																	; 
+						 isNormalize  ? ({1'b0, exp_st} + EXP_OFFSET)																											:
+			                      fill_exp(3'b111)                       																						; 
 
-assign sig = isNAN				? {1'b1  , fra_st}																	:
-					   isINf  			? {SIG_BITS{1'b0}}																	:
-					   isZero 			? {SIG_BITS{1'b0}}																	:
-					   isUnormalize ? {1'b1, fra_st << {{(SIG_BITS-FP_LOG-1){1'b0}}, n}}:
-					   isNormalize  ? {1'b1, fra_st}																		:
-					   		            {SIG_BITS{1'b0}}    															;	
+assign sig = isNAN				? fill_sig(fra_st)																	    :
+					   isINf  			? fill_sig({FRA_BITS{1'b1}})														:
+					   isZero 			? fill_sig({FRA_BITS{1'b0}})													  :
+					   isUnormalize ? fill_sig({fra_st << {{(FRA_BITS-FP_LOG-1){1'b0}}, n}}):
+					   isNormalize  ? fill_sig(fra_st)														          :
+					   		            fill_sig(fra_st)                                      ;	
 
 assign sign = sign_st;
 
