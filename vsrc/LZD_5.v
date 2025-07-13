@@ -62,6 +62,6 @@ wire [4:0] pos;
 /* verilator lint_off UNUSED */
 assign pos = valid4[1] ? pos4[1] : pos4[0];	
 
-assign out = 31 - pos - 9;
+assign out = 31 - pos;
 
 endmodule

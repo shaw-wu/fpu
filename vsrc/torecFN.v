@@ -50,7 +50,7 @@ function [RECEXP_BITS-1:0] fill_exp(input [2:0] top);
 endfunction;	
 
 function [SIG_BITS-1:0] fill_sig(input [FRA_BITS-1:0] fr);
-	fill_sig = {3'b001, fr, {(SIG_BITS-FRA_BITS-3){1'b0}}};
+	fill_sig = {1'b1, fr, {(SIG_BITS-FRA_BITS-1){1'b0}}};
 endfunction;	
                      
 //EXP/SIG logic      

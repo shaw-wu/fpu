@@ -16,6 +16,7 @@ module tostdFN #(
 	input 								 	 isZero      ,
 	input 								 	 isNormalize ,
 	input 								 	 isUnormalize,
+	input	 [8:0]						 Unormalize_n,
 	output [FP_BITS    -1:0] fp           
 );
 
@@ -34,12 +35,12 @@ assign exp_st = isNAN				 ? {EXP_BITS{1'b1}} :
 						 		isNormalize  ? _exp[7:0]        :
 			                         {EXP_BITS{1'b1}} ; 
 
-assign fra_st = isNAN				 ? sig[SIG_BITS-4:SIG_BITS-4-FRA_BITS+1] :
-								isINf  			 ? {FRA_BITS{1'b0}}										   :
-					   		isZero 			 ? {FRA_BITS{1'b0}}											 :
-					   		isUnormalize ? sig[SIG_BITS-4:SIG_BITS-4-FRA_BITS+1] :
-					   		isNormalize  ? sig[SIG_BITS-4:SIG_BITS-4-FRA_BITS+1] :
-					   		               sig[SIG_BITS-4:SIG_BITS-4-FRA_BITS+1] ;	
+assign fra_st = isNAN				 ? sig[SIG_BITS-2 -: FRA_BITS] :
+								isINf  			 ? {FRA_BITS{1'b0}}						 :
+					   		isZero 			 ? {FRA_BITS{1'b0}}						 :
+					   		isUnormalize ? sig >> Unotmalize_n				 :
+					   		isNormalize  ? sig[SIG_BITS-2 -: FRA_BITS] :
+					   		               sig[SIG_BITS-2 -: FRA_BITS] ;	
 
 assign sign_st = sign;
 
