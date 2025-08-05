@@ -1,4 +1,4 @@
-module uR_shifter (
+module uRshifter (
     input  [31:0] data_in,
     input  [5:0] shamt,      // 移位量
     output [31:0] data_out

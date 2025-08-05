@@ -12,7 +12,7 @@ wire [DATA_BITS-1:0]b_sub_a;
 assign a_sub_b = ina - inb;
 assign b_sub_a = inb - ina;
 
-assign ge = a >= b;
+assign ge = ina >= inb;
 assign cmp_abs = ge ? a_sub_b : b_sub_a;
 
 endmodule

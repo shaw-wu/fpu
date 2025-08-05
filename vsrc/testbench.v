@@ -1,32 +1,18 @@
 `timescale 1ns/1ps
 module testbench;
 
-reg [31:0] fp;
-/* verilator lint_off UNUSED */
-wire sign               ; 
-wire [8:0]  exp				 ; 
-wire [31:0] sig				 ; 
-wire isNAN						   ; 
-wire isINf       			 ; 
-wire isZero      			 ; 
-wire isNormalize 			 ; 
-wire isUnormalize			 ;
+reg [31:0] in;
+/*verilator lint_off UNUSED*/
+wire [4:0] out;
 
-torecFN l1 (
-	.fp          (fp          ), 
-	.sign        (sign        ),
-	.exp				 (exp				 ),
-	.sig				 (sig				 ),
-	.isNAN       (isNAN       ),
-	.isINf       (isINf       ),
-	.isZero      (isZero      ),
-	.isNormalize (isNormalize ),
-	.isUnormalize(isUnormalize)
+LZD_5 lzd(
+	.in(in),
+	.out(out)
 );
 
 initial begin
 	#2 
-	fp = 32'b0_1111_1111_010_0000_0000_0000_0000_0000;
+	in = 32'h07fc_0100;
 	#10 $finish;
 end
 

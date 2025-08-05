@@ -97,11 +97,11 @@ CLA adder(
 	.sum (fsum),
 	.cout(cout)
 );
+
 wire [XLEN-1:0] sig_result;
 wire sign_res;
 assign sig_result = fsum[XLEN] ? ~fsum[XLEN-1:0]+1 : fsum[XLEN-1:0];
 assign sign_res   = fsum[XLEN];
-
 
 //LZD shifter_1
 wire [4:0] lshamt;

@@ -1,4 +1,4 @@
-sim_main.o: /home/shaw/fpu/csrc/sim_main.cpp Vtestbench.h \
+sim_main.o: /home/shaw/CA_project/fpu/csrc/sim_main.cpp Vtestbench.h \
  /home/shaw/Downloads/oss-cad-suite/share/verilator/include/verilated.h \
  /home/shaw/Downloads/oss-cad-suite/share/verilator/include/verilatedos.h \
  /home/shaw/Downloads/oss-cad-suite/share/verilator/include/verilated_config.h \
