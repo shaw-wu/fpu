@@ -1,11 +1,11 @@
 module fpu #(
-	parameter FDATA_WIDTH = 64,
-	parameter  DATA_WIDTH = 32,
-	parameter FRA_BITS = 52,
-	parameter EXP_BITS = 11,
-	parameter EXP_START = 53,
-	parameter SIGN_START = 63,
-	parameter BIAS = 1023
+	parameter FDATA_WIDTH = 64  ,
+	parameter  DATA_WIDTH = 32  ,
+	parameter FRA_BITS    = 52  ,
+	parameter EXP_BITS    = 11  ,
+	parameter EXP_START   = 53  ,
+	parameter SIGN_START  = 63  ,
+	parameter BIAS        = 1023
 )(
 	input clk,
 	input rst,
@@ -138,6 +138,26 @@ wire isunormalize_b = (exp_b == 0) && (fra_b != 0);
 wire isnormalize_b  = (exp_b != 0) && (fra_b != 0);
 wire isinf_b = (exp_b == {EXP_BITS{1'b1}}) && (fra_b == 0);
 wire isnan_b = (exp_b == {EXP_BITS{1'b1}}) && (fra_b != 0);
+
+torecFN #(
+    .FP_BITS    (),
+    .FP_LOG     (),
+    .EXP_BITS   (),
+    .FRA_BITS   (),
+    .SIG_BITS   (),
+    .RECEXP_BITS(),
+    .EXP_OFFSET ()
+) torecFN_a (
+	.fp          (fina), 
+	.sign        (sign_a),
+	.exp		 (exp),
+	.sig		 (),
+	.isNAN       (),
+	.isINf       (),
+	.isZero      (),
+	.isNormalize (),
+	.isUnormalize()
+);
 
 //fadd
 wire add_fina_valid;
