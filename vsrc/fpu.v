@@ -1,11 +1,12 @@
 module fpu #(
-	parameter FDATA_WIDTH = 64  ,
-	parameter  DATA_WIDTH = 32  ,
-	parameter FRA_BITS    = 52  ,
-	parameter EXP_BITS    = 11  ,
-	parameter EXP_START   = 53  ,
-	parameter SIGN_START  = 63  ,
-	parameter BIAS        = 1023
+	parameter FDATA_WIDTH = 32            ,
+	parameter FDATA_SIZE  = 5             ,
+	parameter DATA_WIDTH  = 32            ,
+	parameter FRA_BITS    = 52            ,
+	parameter EXP_BITS    = 11            ,
+	parameter SIG_BITS    = 32            ,
+	parameter BIAS        = 1023          ,
+    parameter EXP_OFFSET  = 9'b1_0000_0001
 )(
 	input clk,
 	input rst,
@@ -23,18 +24,19 @@ module fpu #(
 	output [FDATA_WIDTH-1:0] fresult
 );
 
-wire fadd_d = sel == 'd0 ;
-wire fsub_d = sel == 'd1 ;
-wire fmul_d = sel == 'd2 ;
-wire fdiv_d = sel == 'd3 ;
-wire feq_d  = sel == 'd4 ;
-wire flt_d  = sel == 'd5 ;
-wire fle_d  = sel == 'd6 ;
-wire fsgnj_d   = sel == 'd7 ;
-wire fcvt_w_d  = sel == 'd8 ;
-wire fcvt_wu_d = sel == 'd8 ;
-wire fcvt_d_w  = sel == 'd9 ;
-wire fcvt_d_wu = sel == 'd10;
+
+wire fadd_s = sel == 'd0 ;
+wire fsub_s = sel == 'd1 ;
+wire fmul_s = sel == 'd2 ;
+wire fdiv_s = sel == 'd3 ;
+wire feq_s  = sel == 'd4 ;
+wire flt_s  = sel == 'd5 ;
+wire fle_s  = sel == 'd6 ;
+wire fsgnj_s   = sel == 'd7 ;
+wire fcvt_w_s  = sel == 'd8 ;
+wire fcvt_wu_s = sel == 'd8 ;
+wire fcvt_s_w  = sel == 'd9 ;
+wire fcvt_s_wu = sel == 'd10;
 
 parameter IDLE		   = 3'b000;
 parameter WAIT_READY   = 3'b100;
@@ -116,149 +118,121 @@ wire div_fresult_ready = fdiv_d && o_ready && (current_state == WORK);
 
 //decode float format
 wire sign_a;
-wire [EXP_BITS-1:0] exp_a;
-wire [FRA_BITS-1:0] fra_a;
-wire sign_b;
-wire [EXP_BITS-1:0] exp_b;
-wire [FRA_BITS-1:0] fra_b;
-assign sign_a = fina[SIGN_START];
-assign exp_a  = fina[EXP_START+:EXP_BITS];
-assign fra_a  = fina[0        +:FRA_BITS];
-assign sign_b = finb[SIGN_START];
-assign exp_b  = finb[EXP_START+:EXP_BITS];
-assign fra_b  = finb[0        +:FRA_BITS];
+wire [EXP_BITS  :0] exp_a;//recFN exp
+wire [SIG_BITS-1:0] sig_a;
+wire isNAN_a       ;
+wire isINf_a       ;
+wire isZero_a      ;
+wire isNormalize_a ;
+wire isUnormalize_a;
 
-wire iszero_a = (exp_a == 0) && (fra_a == 0);
-wire isunormalize_a = (exp_a == 0) && (fra_a != 0);
-wire isnormalize_a  = (exp_a != 0) && (fra_a != 0);
-wire isinf_a = (exp_a == {EXP_BITS{1'b1}}) && (fra_a == 0);
-wire isnan_a = (exp_a == {EXP_BITS{1'b1}}) && (fra_a != 0);
-wire iszero_b = (exp_b == 0) && (fra_b == 0);
-wire isunormalize_b = (exp_b == 0) && (fra_b != 0);
-wire isnormalize_b  = (exp_b != 0) && (fra_b != 0);
-wire isinf_b = (exp_b == {EXP_BITS{1'b1}}) && (fra_b == 0);
-wire isnan_b = (exp_b == {EXP_BITS{1'b1}}) && (fra_b != 0);
+wire sign_b;
+wire [EXP_BITS  :0] exp_b;//recFN exp
+wire [SIG_BITS-1:0] sig_b;
+wire isNAN_b       ;
+wire isINf_b       ;
+wire isZero_b      ;
+wire isNormalize_b ;
+wire isUnormalize_b;
 
 torecFN #(
-    .FP_BITS    (),
-    .FP_LOG     (),
-    .EXP_BITS   (),
-    .FRA_BITS   (),
-    .SIG_BITS   (),
-    .RECEXP_BITS(),
-    .EXP_OFFSET ()
+    .FP_BITS    (FDATA_BITS ),
+    .FP_LOG     (FDATA_SIZE ),
+    .EXP_BITS   (EXP_BITS   ),
+    .FRA_BITS   (FRA_BITS   ),
+    .SIG_BITS   (SIG_BITS   ),
+    .RECEXP_BITS(EXP_BITS+1 ),
+    .EXP_OFFSET (EXP_OFFSET )
 ) torecFN_a (
-	.fp          (fina), 
-	.sign        (sign_a),
-	.exp		 (exp),
-	.sig		 (),
-	.isNAN       (),
-	.isINf       (),
-	.isZero      (),
-	.isNormalize (),
-	.isUnormalize()
+	.fp          (fina          ), 
+	.sign        (sign_a        ),
+	.exp		 (exp_a	        ),
+	.sig		 (sig_a	        ),
+	.isNAN       (isNAN_a       ),
+	.isINf       (isINf_a       ),
+	.isZero      (isZero_a      ),
+	.isNormalize (isNormalize_a ),
+	.isUnormalize(isUnormalize_a)
 );
 
-//fadd
-wire add_fina_valid;
-wire add_fina_ready;
-wire [FDATA_BITS-1:0] add_fina_data;
-wire add_finb_valid;
-wire add_finb_ready;
-wire [FDATA_BITS-1:0] add_finb_data;
-wire add_fresult_valid;
-wire add_fresult_ready;
-wire [FDATA_BITS-1:0] add_fresult_data;
-wire [2:0] add_fresult_flags;
+torecFN #(
+    .FP_BITS    (FDATA_BITS ),
+    .FP_LOG     (FDATA_SIZE ),
+    .EXP_BITS   (EXP_BITS   ),
+    .FRA_BITS   (FRA_BITS   ),
+    .SIG_BITS   (SIG_BITS   ),
+    .RECEXP_BITS(EXP_BITS+1 ),
+    .EXP_OFFSET (EXP_OFFSET )
+) torecFN_b (
+	.fp          (finb          ), 
+	.sign        (sign_b        ),
+	.exp		 (exp_b	        ),
+	.sig		 (sig_b	        ),
+	.isNAN       (isNAN_b       ),
+	.isINf       (isINf_b       ),
+	.isZero      (isZero_b      ),
+	.isNormalize (isNormalize_b ),
+	.isUnormalize(isUnormalize_b)
+);
+
+//fadd / sign
+wire add_sub_sel = fsub_s;
+
+wire                add_res_sign        ;
+wire [SIG_BITS-1:0] add_res_sig         ;
+wire [EXP_BITS-1:0] add_res_exp         ;
+wire                add_res_isNAN       ;
+wire                add_res_isINf       ;
+wire                add_res_isZero      ;
+wire                add_res_isNormalize ;
+wire                add_res_isUnormalize;
+
 FADD fadd(
-	.aclk			(clk							 ),
-	.s_axis_a_tvalid   (add_fina_valid	 ),
-	.s_axis_a_tready   (add_fina_ready	 ),
-	.s_axis_a_tdata	   (add_fina_data 	 ),
-	.s_axis_b_tvalid   (add_finb_valid	 ),
-	.s_axis_b_tready   (add_finb_ready	 ),
-	.s_axis_b_tdata	   (add_finb_data 	 ),
-	.m_axis_result_tvalid(add_fresult_valid),
-	.m_axis_result_tready(add_fresult_ready),
-	.m_axis_result_tdata (add_fresult_data ),
-	.m_axis_result_tuser (add_fresult_flags)
+	.aclk			           (clk			        ),
+    .areset                    (rst                 ),
+//add-sub sel
+    .s_axis_sel                (add_sub_sel         ),
+//fina
+	.s_axis_a_tvalid           (add_fina_valid      ),
+	.s_axis_a_tready           (add_fina_ready      ),
+
+	.s_axis_a_sign             (sign_a              ),
+	.s_axis_a_sig              (sig_a               ),
+	.s_axis_a_exp              (exp_a               ),
+
+	.s_axis_a_isNAN            (isNAN               ),
+	.s_axis_a_isINf            (isINf               ),
+	.s_axis_a_isZero           (isZero              ),
+	.s_axis_a_isNormalize      (isNormalize         ),
+	.s_axis_a_isUnormalize     (isUnormalize        ),
+//finb
+	.s_axis_b_tvalid           (add_finb_valid      ),
+	.s_axis_b_tready           (add_finb_ready      ),
+
+	.s_axis_b_sign             (sign_b              ),
+	.s_axis_b_sig              (sig_b               ),
+	.s_axis_b_exp              (exp_b               ),
+
+	.s_axis_b_isNAN            (isNAN_b             ),
+	.s_axis_b_isINf            (isINf_b             ),
+	.s_axis_b_isZero           (isZero_b            ),
+	.s_axis_b_isNormalize      (isNormalize_b       ),
+	.s_axis_b_isUnormalize     (isUnormalize_b      ),
+//fresult
+	.m_axis_result_tvalid      (add_fresult_valid   ),
+	.m_axis_result_tready      (add_fresult_ready   ),
+
+	.m_axis_result_sign        (add_res_sign        ),
+	.m_axis_result_sig         (add_res_sig         ),
+	.m_axis_result_exp         (add_res_exp         ),
+
+	.m_axis_result_isNAN       (add_res_isNAN       ),
+	.m_axis_result_isINf       (add_res_isINf       ),
+	.m_axis_result_isZero      (add_res_isZero      ),
+	.m_axis_result_isNormalize (add_res_isNormalize ),
+	.m_axis_result_isUnormalize(add_res_isUnormalize),
 );
 
-//fsub
-wire sub_fina_valid;
-wire sub_fina_ready;
-wire [FDATA_BITS-1:0] sub_fina_data;
-wire sub_finb_valid;
-wire sub_finb_ready;
-wire [FDATA_BITS-1:0] sub_finb_data;
-wire sub_fresult_valid;
-wire sub_fresult_ready;
-wire [FDATA_BITS-1:0] sub_fresult_data;
-wire [2:0] sub_fresult_flags;
-FSUB fsub(
-	.aclk							 (clk							 ),
-	.s_axis_a_tvalid   (sub_fina_valid	 ),
-	.s_axis_a_tready   (sub_fina_ready	 ),
-	.s_axis_a_tdata	   (sub_fina_data 	 ),
-	.s_axis_b_tvalid   (sub_finb_valid	 ),
-	.s_axis_b_tready   (sub_finb_ready	 ),
-	.s_axis_b_tdata	   (sub_finb_data 	 ),
-	.m_axis_result_tvalid(sub_fresult_valid),
-	.m_axis_result_tready(sub_fresult_ready),
-	.m_axis_result_tdata (sub_fresult_data ),
-	.m_axis_result_tuser (sub_fresult_flags)
-);
-
-//fmul
-wire mul_fina_valid;
-wire mul_fina_ready;
-wire [FDATA_BITS-1:0] mul_fina_data;
-wire mul_finb_valid;
-wire mul_finb_ready;
-wire [FDATA_BITS-1:0] mul_finb_data;
-wire mul_fresult_valid;
-wire mul_fresult_ready;
-wire [FDATA_BITS-1:0] mul_fresult_data;
-wire [2:0] mul_fresult_flags;
-FMUL fmul(
-	.aclk							 (clk							 ),
-	.s_axis_a_tvalid   (mul_fina_valid	 ),
-	.s_axis_a_tready   (mul_fina_ready	 ),
-	.s_axis_a_tdata	   (mul_fina_data 	 ),
-	.s_axis_b_tvalid   (mul_finb_valid	 ),
-	.s_axis_b_tready   (mul_finb_ready	 ),
-	.s_axis_b_tdata	   (mul_finb_data 	 ),
-	.m_axis_result_tvalid(mul_fresult_valid),
-	.m_axis_result_tready(mul_fresult_ready),
-	.m_axis_result_tdata (mul_fresult_data ),
-	.m_axis_result_tuser (mul_fresult_flags)
-);
-
-//fdiv
-wire div_fina_valid;
-wire div_fina_ready;
-wire [FDATA_BITS-1:0] div_fina_data;
-wire div_finb_valid;
-wire div_finb_ready;
-wire [FDATA_BITS-1:0] div_finb_data;
-wire div_fresult_valid;
-wire div_fresult_ready;
-wire [FDATA_BITS-1:0] div_fresult_data;
-wire [3:0] div_fresult_flags;
-FIV fiv(
-	.aclk			   (clk			     ),
-	.s_axis_a_tvalid   (div_fina_valid	 ),
-	.s_axis_a_tready   (div_fina_ready	 ),
-	.s_axis_a_tdata	   (div_fina_data 	 ),
-	.s_axis_b_tvalid   (div_finb_valid	 ),
-	.s_axis_b_tready   (div_finb_ready	 ),
-	.s_axis_b_tdata	   (div_finb_data 	 ),
-	.m_axis_result_tvalid(div_fresult_valid),
-	.m_axis_result_tready(div_fresult_ready),
-	.m_axis_result_tdata (div_fresult_data ),
-	.m_axis_result_tuser (div_fresult_flags)
-);
-);
 
 //feq
 wire feq_fresult = fina == finb;
@@ -280,9 +254,9 @@ wire fle_fresult = sign_a ^ sign_b ? sign_a :
 //fsgnj
 wire fsgnj_fresult = {sign_b, exp_a, fra_a};
 
-//fcvt_w_d and fcvt_wu_d
-wire [DATA_WIDTH-1:0] fcds_fresult;
-wire [DATA_WIDTH-1:0] fcdu_fresult;
+//fcvt_w_s and fcvt_wu_s
+wire [DATA_WIDTH-1:0] fcss_fresult;
+wire [DATA_WIDTH-1:0] fcsu_fresult;
 wire cvt_fw_nv;
 wire cvt_fw_of;
 wire cvt_fw_nx;
@@ -291,13 +265,13 @@ cvt_fw #(
 	.SIG_BITS  (FRA_BITS+1),
 	.EXP_BITS  (EXP_BITS  ),
 	.BIAS      (BIAS	  )
-) cvt_x_d(
+) cvt_x_s(
 	.u_i   (fcvt_d_wu	 ),
 	.sign  (sign_a	 	 ),
 	.exp   (exp_a		 ),
 	.sig   ({1'b1, fra_a}),
-	.w_res (fcds_fresult ),
-	.wu_res(fcdu_fresult ),
+	.w_res (fcss_fresult ),
+	.wu_res(fcsu_fresult ),
 	.frm   (frm			 ),
 	.isnan (isnan_a		 ),
 	.nv	   (cvt_fw_nv	 ),
@@ -305,23 +279,23 @@ cvt_fw #(
 	.nx	   (cvt_fw_nx	 )
 );
 
-//fcvt_d_w and fcvt_d_wu
-wire                fcxd_sign;
-wire [EXP_BITS-1:0] fcxd_exp;
-wire [FRA_BITS  :0] fcxd_sig;
-wire [FDATA_WIDTH-1:0] fcxd_fresult;
+//fcvt_s_w and fcvt_s_wu
+wire                fcxs_sign;
+wire [EXP_BITS-1:0] fcxs_exp;
+wire [FRA_BITS  :0] fcxs_sig;
+wire [FDATA_WIDTH-1:0] fcxs_fresult;
 cvt_wf #(
 	.DATA_WIDTH(DATA_WIDTH),
 	.SIG_BITS  (FRA_BITS+1),
 	.EXP_BITS  (EXP_BITS  ),
 	.BIAS      (BIAS	  )
-) cvt_d_x(
+) cvt_s_x(
 	.u_i   (fcvt_d_wu),
 	.xdata (ina		 ),
-	.sign  (fcxd_sign),
-	.exp   (fcxd_exp ),
-	.sig   (fcxd_sig )
+	.sign  (fcxs_sign),
+	.exp   (fcxs_exp ),
+	.sig   (fcxs_sig )
 );
-assign fcxd_fresult = {fcxd_sign, fcxd_exp, fcxd_sig[0+:FRA_BITS]};
+assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[0+:FRA_BITS]};
 
 endmodule
