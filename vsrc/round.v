@@ -16,7 +16,8 @@ module round #(
 	input  [          2:0] frm         ,
 	input  [          4:0] fflags      ,
 	output [SIG_BITS -1:0] o_sig       ,
-	output [EXP_BITS -1:0] o_exp
+	output [EXP_BITS -1:0] o_exp       ,
+    output                 o_sign      
 );
 
 wire guardBit;
@@ -37,6 +38,7 @@ assign roundIncre = (frm == 3'b000) ? (roundBit && stickyBit) || (roundBit && !s
 
 assign o_exp = of ? exp + 1 : exp;
 assign o_sig = of ? {1'b1, {(SIG_BITS-1){1'b0}} : {sig[SIG_BITS-1:SIG_BITS-FRA_BITS-1] + roudIncre, {(SIG_BITS-FRA_BITS-1){1'b0}}};
+assign o_sign = sign;
 
 wire nx = (roundBit || stickyBit) && ((!roundBit || !stickyBit) && roundIncre);
 wire of = &exp;

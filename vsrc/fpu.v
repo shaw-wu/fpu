@@ -116,7 +116,7 @@ wire div_fina_valid    = fdiv_d && i_valid;
 wire div_finb_valid    = fdiv_d && i_valid;
 wire div_fresult_ready = fdiv_d && o_ready && (current_state == WORK);
 
-//decode float format
+//torecFN
 wire sign_a;
 wire [EXP_BITS  :0] exp_a;//recFN exp
 wire [SIG_BITS-1:0] sig_a;
@@ -187,7 +187,7 @@ wire                add_res_isZero      ;
 wire                add_res_isNormalize ;
 wire                add_res_isUnormalize;
 
-FADD fadd(
+fadd FADD(
 	.aclk			           (clk			        ),
     .areset                    (rst                 ),
 //add-sub sel
@@ -231,8 +231,50 @@ FADD fadd(
 	.m_axis_result_isZero      (add_res_isZero      ),
 	.m_axis_result_isNormalize (add_res_isNormalize ),
 	.m_axis_result_isUnormalize(add_res_isUnormalize),
+	.m_axis_result_Unormalize_n(add_res_Unormalize_n),
 );
 
+//fadd/fsub result
+wire sign_res;
+wire [EXP_BITS  :0] exp_res;//recFN exp
+wire [SIG_BITS-1:0] sig_res;
+wire isNAN_res         ;
+wire isINf_res         ;
+wire isZero_res        ;
+wire isNormalize_res   ;
+wire isUnormalize_res  ;
+wire isUnormalize_n_res;
+wire [FDATA_BITS-1:0] fpu_result;
+assign sign_res           = add_res_sign        ;
+assign exp_res            = add_res_sig         ;
+assign sig_res            = add_res_exp         ;
+assign isNAN_res          = add_res_isNAN       ;
+assign isINf_res          = add_res_isINf       ;
+assign isZero_res         = add_res_isZero      ;
+assign isNormalize_res    = add_res_isNormalize ;
+assign isUnormalize_res   = add_res_isUnormalize;
+assign isUnormalize_n_res = add_res_Unormalize_n;
+
+//torecFN
+tostdFN#(
+    .FP_BITS    (FDATA_BITS ),
+    .EXP_BITS   (EXP_BITS   ),
+    .FRA_BITS   (FRA_BITS   ),
+    .SIG_BITS   (SIG_BITS   ),
+    .RECEXP_BITS(EXP_BITS+1 ),
+    .EXP_OFFSET (EXP_OFFSET )
+) tostdFN (
+	.sign        (sign_res        ),
+	.exp		 (exp_res	      ),
+	.sig		 (sig_res	      ),
+	.isNAN       (isNAN_res       ),
+	.isINf       (isINf_res       ),
+	.isZero      (isZero_res      ),
+	.isNormalize (isNormalize_res ),
+	.isUnormalize(isUnormalize_res)
+	.Unormalize_n(Unormalize_n_res)
+	.fp          (fpu_result      ), 
+);
 
 //feq
 wire feq_fresult = fina == finb;
@@ -280,9 +322,9 @@ cvt_fw #(
 );
 
 //fcvt_s_w and fcvt_s_wu
-wire                fcxs_sign;
-wire [EXP_BITS-1:0] fcxs_exp;
-wire [FRA_BITS  :0] fcxs_sig;
+wire                   fcxs_sign   ;
+wire [EXP_BITS-1   :0] fcxs_exp    ;
+wire [FRA_BITS     :0] fcxs_sig    ;
 wire [FDATA_WIDTH-1:0] fcxs_fresult;
 cvt_wf #(
 	.DATA_WIDTH(DATA_WIDTH),
@@ -297,5 +339,16 @@ cvt_wf #(
 	.sig   (fcxs_sig )
 );
 assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[0+:FRA_BITS]};
+
+//fresult
+assign fresult = fadd_s || fsub_s || fmul_s || fdiv_s ? fpu_result    :
+                 feq_s                                ? feq_fresult   :
+                 flt_s                                ? flt_fresult   :
+                 fle_s                                ? fle_fresult   : 
+                 fsgnj_s                              ? fsgnj_fresult : 
+                 fcvt_w_s                             ? fcss_fresult  :
+                 fcvt_wu_s                            ? fcsu_fresult  :
+                 fcvt_s_w                             ? fcxs_fresult  :
+                 fcvt_s_wu                            ? fcxs_fresult  : 0;
 
 endmodule
