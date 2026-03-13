@@ -7,7 +7,7 @@ module fpu #(
 	parameter SIG_BITS    = 32            ,
 	parameter SIG_SIZE    = 5             ,
 	parameter FRM_BITS    = 3             ,
-    parameter EXP_OFFSET  = 9'b1_0000_0001
+    parameter EXP_OFFSET  = 9'b0_1000_0001
 )(
 	input clk,
 	input rst,
@@ -45,10 +45,9 @@ wire add_finb_ready;
 wire add_fresult_valid;
 
 parameter IDLE		   = 3'b000;
-parameter WAIT_READY   = 3'b100;
-parameter WAIT_A_READY = 3'b101;
-parameter WAIT_B_READY = 3'b110;
-parameter WORK         = 3'b011;
+parameter WAIT_A_READY = 3'b001;
+parameter WAIT_B_READY = 3'b011;
+parameter WORK         = 3'b010;
 
 reg [2:0] current_state, next_state;
 
@@ -58,14 +57,7 @@ always @(*) begin
 			if     (i_valid && fadd_s && fa_ready && fb_ready) next_state = WORK        ;
 			else if(i_valid && fadd_s && fa_ready            ) next_state = WAIT_B_READY;
 			else if(i_valid && fadd_s &&             fb_ready) next_state = WAIT_A_READY;
-			else if(i_valid && fadd_s                        ) next_state = WAIT_READY  ;
-			else																	           next_state = IDLE        ;
-		end
-		WAIT_READY : begin
-			if     (fa_ready && fb_ready) next_state = WORK        ;
-            else if(fa_ready            ) next_state = WAIT_B_READY;
-            else if(            fb_ready) next_state = WAIT_A_READY;
-			else                          next_state = WAIT_READY  ;
+			else											   next_state = IDLE        ;
 		end
 		WAIT_A_READY : begin
 			if(fa_ready) next_state = WORK        ;
@@ -94,9 +86,8 @@ end
 wire   fa_ready, fb_ready;
 assign fa_ready = fadd_s ? add_fina_ready : 0;
 assign fb_ready = fadd_s ? add_finb_ready : 0;
-assign i_ready = ((current_state == WAIT_READY  ) && fa_ready && fb_ready) ||
-                 ((current_state == WAIT_A_READY) && fa_ready            ) ||
-                 ((current_state == WAIT_B_READY)             && fb_ready)   ; 
+assign i_ready = ((current_state == WAIT_A_READY) && fa_ready            ) ||
+                 ((current_state == WAIT_B_READY)             && fb_ready) || (current_state == IDLE); 
 
 assign o_valid = fadd_s ? add_fresult_valid : i_valid;
 

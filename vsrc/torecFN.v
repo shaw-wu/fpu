@@ -6,7 +6,7 @@ module torecFN #(
 	parameter FRA_BITS    = 23            ,
 	parameter SIG_BITS    = 32            ,
 	parameter RECEXP_BITS = 9             ,
-	parameter EXP_OFFSET  = 9'b1_0000_0001
+	parameter EXP_OFFSET  = 9'b0_1000_0001
 )(
 	input  [FP_BITS    -1:0] fp   , 
 	output 					 sign ,

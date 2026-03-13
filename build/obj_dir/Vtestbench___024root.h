@@ -31,7 +31,6 @@ class alignas(VL_CACHE_LINE_BYTES) Vtestbench___024root final {
         CData/*2:0*/ testbench__DOT__dut__DOT__next_state;
         CData/*0:0*/ testbench__DOT__dut__DOT____VdfgRegularize_ha416a7ce_0_1;
         CData/*0:0*/ testbench__DOT__dut__DOT____VdfgRegularize_ha416a7ce_0_2;
-        CData/*0:0*/ testbench__DOT__dut__DOT____VdfgRegularize_ha416a7ce_0_3;
         CData/*0:0*/ testbench__DOT__dut__DOT__torecFN_a__DOT__isZero;
         CData/*0:0*/ testbench__DOT__dut__DOT__torecFN_a__DOT__isUnormalize;
         CData/*0:0*/ testbench__DOT__dut__DOT__torecFN_a__DOT__isNormalize;
@@ -46,9 +45,10 @@ class alignas(VL_CACHE_LINE_BYTES) Vtestbench___024root final {
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__s_axis_b_isINf;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__m_axis_res_isNAN;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__m_axis_res_isINf;
-        CData/*5:0*/ testbench__DOT__dut__DOT__FADD__DOT__lamt;
+        CData/*5:0*/ testbench__DOT__dut__DOT__FADD__DOT__pos;
         CData/*4:0*/ testbench__DOT__dut__DOT__FADD__DOT__LDZ__DOT__found_index;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__isUnormalize;
+        CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__stickyBit;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__roundIncre;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__sig_cout;
         CData/*0:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__nx;
@@ -93,7 +93,9 @@ class alignas(VL_CACHE_LINE_BYTES) Vtestbench___024root final {
         IData/*31:0*/ testbench__DOT__dut__DOT__sig_b;
         IData/*31:0*/ testbench__DOT__dut__DOT__fcxs_fresult;
         IData/*31:0*/ testbench__DOT__dut__DOT__FADD__DOT__m_axis_res_sig;
+        IData/*31:0*/ testbench__DOT__dut__DOT__FADD__DOT__add_res;
         IData/*31:0*/ testbench__DOT__dut__DOT__FADD__DOT__sig_res;
+        IData/*31:0*/ testbench__DOT__dut__DOT__FADD__DOT__s_sig_res;
         IData/*31:0*/ testbench__DOT__dut__DOT__FADD__DOT__ROUND__DOT__shift_sig;
         IData/*31:0*/ testbench__DOT__dut__DOT__cvt_x_s__DOT__sigres;
         IData/*31:0*/ testbench__DOT__dut__DOT__cvt_s_x__DOT__data;

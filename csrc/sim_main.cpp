@@ -5,7 +5,7 @@
 VerilatedContext* contextp = NULL; // 上下文变量
 VerilatedVcdC* tfp = NULL;         // 波形变量
 static Vtestbench* top;               // 声明模块变量
-static int sim_time = 50000000;
+static int sim_time = -1;
 
 void sim_init(int argc, char** argv ){
 	contextp = new VerilatedContext;  
