@@ -33,13 +33,16 @@ wire   isUnormalize = (exp_st == 0 && fra_st != 0);
 wire   isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
 
 //Leading Zero Detect
-wire [FP_LOG-1:0] pos;
+/*verilator lint_off UNUSED*/
+wire [FP_LOG  :0] pos;
+/*verilator lint_on UNUSED*/
 wire [FP_LOG-1:0] n  ;
 ldz LZD (
 	.in ({fra_st, {(FP_BITS-FRA_BITS){1'b0}}}),
 	.out(pos)
 );
-assign n = pos + 1;  
+wire [FP_LOG-1:0] shift_amt = pos[FP_LOG-1:0];
+assign n = shift_amt + 1;  
 
 function [RECEXP_BITS-1:0] fill_exp(input [2:0] top);
 	fill_exp = {top , {(RECEXP_BITS-3){1'b1}}};

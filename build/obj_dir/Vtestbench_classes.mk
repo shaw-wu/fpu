@@ -13,47 +13,45 @@ VM_TIMING = 1
 VM_COVERAGE = 0
 # Parallel builds?  0/1 (from --output-split)
 VM_PARALLEL_BUILDS = 0
-# Tracing output mode?  0/1 (from --trace/--trace-fst/--trace-saif)
+# Tracing output mode?  0/1 (from --trace-fst/--trace-saif/--trace-vcd)
 VM_TRACE = 1
-# Tracing output mode in VCD format?  0/1 (from --trace)
-VM_TRACE_VCD = 1
 # Tracing output mode in FST format?  0/1 (from --trace-fst)
 VM_TRACE_FST = 0
 # Tracing output mode in SAIF format?  0/1 (from --trace-saif)
 VM_TRACE_SAIF = 0
+# Tracing output mode in VCD format?  0/1 (from --trace-vcd)
+VM_TRACE_VCD = 1
 
 ### Object file lists...
 # Generated module classes, fast-path, compile with highest optimization
 VM_CLASSES_FAST += \
-	Vtestbench \
-	Vtestbench___024root__DepSet_hfc24d085__0 \
-	Vtestbench___024root__DepSet_hed41eec4__0 \
+  Vtestbench \
+  Vtestbench___024root__0 \
 
 # Generated module classes, non-fast-path, compile with low/medium optimization
 VM_CLASSES_SLOW += \
-	Vtestbench___024root__Slow \
-	Vtestbench___024root__DepSet_hfc24d085__0__Slow \
-	Vtestbench___024root__DepSet_hed41eec4__0__Slow \
+  Vtestbench__ConstPool__0__Slow \
+  Vtestbench___024root__Slow \
+  Vtestbench___024root__0__Slow \
 
 # Generated support classes, fast-path, compile with highest optimization
 VM_SUPPORT_FAST += \
-	Vtestbench__Trace__0 \
+  Vtestbench__Trace__0 \
 
 # Generated support classes, non-fast-path, compile with low/medium optimization
 VM_SUPPORT_SLOW += \
-	Vtestbench__Syms \
-	Vtestbench__Trace__0__Slow \
-	Vtestbench__TraceDecls__0__Slow \
+  Vtestbench__Syms__Slow \
+  Vtestbench__Trace__0__Slow \
+  Vtestbench__TraceDecls__0__Slow \
 
 # Global classes, need linked once per executable, fast-path, compile with highest optimization
 VM_GLOBAL_FAST += \
-	verilated \
-	verilated_vcd_c \
-	verilated_timing \
-	verilated_threads \
+  verilated \
+  verilated_vcd_c \
+  verilated_timing \
+  verilated_threads \
 
 # Global classes, need linked once per executable, non-fast-path, compile with low/medium optimization
 VM_GLOBAL_SLOW += \
-
 
 # Verilated -*- Makefile -*-

@@ -1,51 +1,127 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 module testbench;
-  parameter NUM = 100000;
-	reg [127:0] test_vectors [0:NUM-1]; 
-	reg [5:0] sel;
-	reg [31:0] ina;
-	reg [31:0] inb;
-	reg [2:0] frm;
-	wire [4:0] _fflags;
-	wire [31:0] _result;
-	reg [4:0] tst_fflags;
-	reg [31:0] tst_result;
-	reg right;
+    // 参数定义（与你的模块一致）
+    parameter FDATA_WIDTH = 32;
+    parameter FRM_BITS    = 3;
+    parameter CLK_PERIOD  = 10;
 
-integer i;
+    // 信号定义
+    reg clk;
+    reg rst;
+    reg i_valid;
+    wire i_ready;
+    reg [3:0] sel;
+    reg [FRM_BITS-1:0] frm;
+    reg [FDATA_WIDTH-1:0] fina;
+    reg [FDATA_WIDTH-1:0] finb;
+    reg [31:0] ina; // 暂时设为32，可根据需求修改
+    
+    wire o_valid;
+    reg o_ready;
+    wire [4:0] fflags;
+    wire [FDATA_WIDTH-1:0] fresult;
 
-always @(*) begin
-	if(tst_result == _result) begin
-		right = 1;
-	end else begin
-		right = 0;
-  end
-end
+    // 测试向量与日志文件句柄
+    integer file_in, file_log;
+    integer status;
+    reg [FDATA_WIDTH-1:0] exp_res;
+    reg [4:0] exp_fflags;
+    integer vector_cnt = 0;
+    integer error_cnt = 0;
 
-FPU i0(
-	.io_sel(sel),
-	.io_ina(ina),
-	.io_inb(inb),
-	.io_frm(frm),
-	.io_fflags(_fflags),
-	.io_result(_result)
-);
+    // 实例化被测设计 (DUT)
+    fpu #(
+        .FDATA_BITS(FDATA_WIDTH)
+    ) dut (
+        .clk(clk),
+        .rst(rst),
+        .i_valid(i_valid),
+        .i_ready(i_ready),
+        .sel(sel),
+        .frm(frm),
+        .fina(fina),
+        .finb(finb),
+        .ina(ina),
+        .o_valid(o_valid),
+        .o_ready(o_ready),
+        .fflags(fflags),
+        .fresult(fresult)
+    );
 
-initial begin
-	$readmemh("test-examples/fpu_test_vectors.hex", test_vectors);
-//	$dumpfile("dump.vcd");
-	$dumpvars(0, test_vectors);  // 指定 dump memory
-	for(i = 0; i < NUM; i = i + 1) begin
-	  sel = test_vectors[i][6+32+32+4+32+8-1:32+32+4+32+8];
-	  ina = test_vectors[i][32+32+4+32+8-1:32+4+32+8];
-	  inb = test_vectors[i][32+4+32+8-1:4+32+8];
-	  frm = test_vectors[i][3+32+8-1:32+8];
-	  tst_result = test_vectors[i][32+8-1:8];
-	  tst_fflags = test_vectors[i][5-1:0];
-	  #10;
-    $display("Test %0d: sel=%h, ina=%h, inb=%h, frm=%h, result=%h, fflags=%h, fpu_res=%h, fpu_fflags=%h, right=%d", i, sel, ina, inb, frm, tst_result, tst_fflags, _result, _fflags, right);
-	end
-	$finish;
-end
+    // 时钟生成
+    initial clk = 0;
+    always #(CLK_PERIOD/2) clk = ~clk;
+
+    // 主测试逻辑
+    initial begin
+        // 初始化信号
+        rst = 1;
+        i_valid = 0;
+        sel = 4'b0000; // 假设 0 是加法，根据你具体的逻辑修改
+        frm = 3'b000;
+        fina = 0;
+        finb = 0;
+        ina = 0;
+        o_ready = 1;
+
+        // 打开文件
+        file_in = $fopen("test_vectors.txt", "r");
+        file_log = $fopen("log.txt", "w");
+
+        if (file_in == 0 || file_log == 0) begin
+            $display("错误：无法打开测试文件或日志文件！");
+            $finish;
+        end
+
+        $fdisplay(file_log, "--- FPU 自动化测试开始 ---");
+        $display("开始读取测试向量...");
+
+        // 复位释放
+        #(CLK_PERIOD * 5);
+        rst = 0;
+        #(CLK_PERIOD * 2);
+
+        // 循环读取测试向量
+        // 格式: [fina finb res fflags]
+        while (!$feof(file_in)) begin
+            status = $fscanf(file_in, "%h %h %h %h\n", fina, finb, exp_res, exp_fflags);
+            
+            if (status == 4) begin
+                vector_cnt = vector_cnt + 1;
+                
+                // 发起握手请求
+                i_valid = 1;
+                wait(i_ready); // 等待 DUT 准备好
+                @(posedge clk);
+                #1; // 模拟些许延迟
+                i_valid = 0;
+
+                // 等待结果输出
+                wait(o_valid);
+                @(posedge clk);
+                
+                // 比对结果
+                if (fresult !== exp_res || fflags !== exp_fflags) begin
+                    error_cnt = error_cnt + 1;
+                    $fdisplay(file_log, "[Error] Vector %0d: A=%h, B=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
+                              vector_cnt, fina, finb, fresult, fflags, exp_res, exp_fflags);
+                end else begin
+                    $fdisplay(file_log, "[Pass] Vector %0d", vector_cnt);
+                end
+
+                if (vector_cnt % 100 == 0) $display("已处理 %0d 条测试向量...", vector_cnt);
+            end
+        end
+
+        // 结束报告
+        $display("---------------------------------------");
+        $display("测试完成！总数: %0d, 错误数: %0d", vector_cnt, error_cnt);
+        $display("详情请查看 simulation.log");
+        $fdisplay(file_log, "--- 测试结束 | 总计: %0d, 错误: %0d ---", vector_cnt, error_cnt);
+        
+        $fclose(file_in);
+        $fclose(file_log);
+        $finish;
+    end
 
 endmodule

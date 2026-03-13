@@ -3,7 +3,7 @@ module ldz #(
     parameter DATA_SIZE = 5 
 )(
     input  [DATA_BITS-1:0] in ,
-    output [DATA_SIZE  :0] out
+    output reg [DATA_SIZE  :0] out
 );
 
     integer i;
@@ -16,7 +16,9 @@ module ldz #(
         // 这里的逻辑是：找到最高位的 1，计算它左边有多少个 0
         for (i = 0; i < DATA_BITS; i = i + 1) begin
             if (in[i]) begin
+                /*verilator lint_off WIDTHTRUNC*/
                 found_index = (DATA_BITS - 1) - i;
+                /*verilator lint_on WIDTHTRUNC*/
             end
         end
         out = {found_index == 0, found_index};

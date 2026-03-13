@@ -3,16 +3,14 @@
 // See Vtestbench.h for the primary calling header
 
 #include "Vtestbench__pch.h"
-#include "Vtestbench__Syms.h"
-#include "Vtestbench___024root.h"
 
 void Vtestbench___024root___ctor_var_reset(Vtestbench___024root* vlSelf);
 
-Vtestbench___024root::Vtestbench___024root(Vtestbench__Syms* symsp, const char* v__name)
-    : VerilatedModule{v__name}
-    , __VdlySched{*symsp->_vm_contextp__}
-    , vlSymsp{symsp}
+Vtestbench___024root::Vtestbench___024root(Vtestbench__Syms* symsp, const char* namep)
+    : __VdlySched{*symsp->_vm_contextp__}
  {
+    vlSymsp = symsp;
+    vlNamep = strdup(namep);
     // Reset structure values
     Vtestbench___024root___ctor_var_reset(this);
 }
@@ -22,4 +20,5 @@ void Vtestbench___024root::__Vconfigure(bool first) {
 }
 
 Vtestbench___024root::~Vtestbench___024root() {
+    VL_DO_DANGLING(std::free(const_cast<char*>(vlNamep)), vlNamep);
 }

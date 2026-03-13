@@ -24,8 +24,6 @@ wire isZero       =  exp[RECEXP_BITS-1-:3] == 3'b000;
 wire isNormalize  = (exp >= 9'b0_1000_0010) && (exp <= 9'b1_0111_1111);
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 
-wire [REEXP_BITS-1:0] Unormalize_n = 9'b0_1000_0001 - exp //-127 - e
-
 /*verilator lint_off UNUSED*/
 wire [RECEXP_BITS-1:0] _exp;
 assign _exp = exp - EXP_OFFSET;
@@ -40,7 +38,7 @@ assign exp_st = isNAN        ? {EXP_BITS{1'b1}} :
 assign fra_st = isNAN        ? sig[SIG_BITS-1 -: FRA_BITS]       :
 				isINf  		 ? {FRA_BITS{1'b0}}			         :
 				isZero 		 ? {FRA_BITS{1'b0}}			         :
-				isUnormalize ? sig[SIG_BITS-1:0] >> Unormalize_n :
+				isUnormalize ? sig[SIG_BITS-2-:FRA_BITS]         :
 				isNormalize  ? sig[SIG_BITS-2-:FRA_BITS]         : sig[SIG_BITS-2-:FRA_BITS] ;	
 
 assign fp = {sign, exp_st, fra_st};

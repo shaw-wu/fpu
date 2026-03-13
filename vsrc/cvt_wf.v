@@ -6,8 +6,9 @@ module cvt_wf #(
 	parameter EXP_BITS  = 8 ,
 	parameter BIAS		= 127 
 )(
-	input				   u_i	 ,
+	input				   u_i	,
 	input  [DATA_BITS-1:0] xdata,
+	input  [          2:0] frm  ,
 	output 				   sign ,
 	output [EXP_BITS -1:0] exp  ,
 	output [SIG_BITS -1:0] sig  ,
@@ -22,19 +23,23 @@ assign  int_data = xdata[DATA_BITS-1] ? ~xdata[DATA_BITS-1:0] + 1 : xdata[DATA_B
 wire [DATA_BITS-1:0] data = u_i ? uint_data : int_data;
 
 //32bits shifter(detect lead zero)
-wire [DATA_SIZE-1:0] shift_amt;
+/* verilator lint_off UNUSED */
+wire [DATA_SIZE  :0] full_shift_amt;
+/* verilator lint_on UNUSED */
+wire [DATA_SIZE-1:0] shift_amt = full_shift_amt[DATA_SIZE-1:0];
 ldz #(
     .DATA_BITS(DATA_BITS),
     .DATA_SIZE(DATA_SIZE)
 ) LDZ (
-    .in (data     ),
-    .out(shift_amt)
+    .in (data          ),
+    .out(full_shift_amt)
 );
 
 wire [DATA_BITS-1:0] shift_sig = xdata << shift_amt;
  
 //round
-wire [SIG_BITS-1:0] sigres;
+wire [SIG_BITS-1:0] sigres ;
+wire                sigcout;
 wire lsbBit    =  shift_sig[DATA_BITS-SIG_BITS    ];
 wire guardBit  =  shift_sig[DATA_BITS-SIG_BITS-1  ];
 wire roundBit  =  shift_sig[DATA_BITS-SIG_BITS-2  ];
@@ -44,12 +49,16 @@ wire roundIncre = (frm == 3'b000) ? guardBit && (lsbBit || stickyBit || roundBit
 				  (frm == 3'b010) ?  sign && (guardBit || roundBit || stickyBit)  :	//rdn
 				  (frm == 3'b011) ? !sign && (guardBit || roundBit || stickyBit)  :	//rup
 				  (frm == 3'b100) ?  guardBit                                     : 0; //rmm	
-assign sigres = shift_xsig[DATA_BITS-:SIG_BITS] + roundIncre;
+/* verilator lint_off WIDTHEXPAND */
+assign {sigcout, sigres} = shift_sig[DATA_BITS-1-:SIG_BITS] + roundIncre;
+/* verilator lint_on WIDTHEXPAND */
 
 //res
-assign sign = u_i ? 0 : xdata[DATA_WIDTH-1]    ;
-assign exp  = DATA_BITS - 1 - shift_amt + BIAS ;
-assign sig  = shift_sig                        ; 
-assign nx   = guardBit || roundBit || stickyBit;
+assign sign = u_i ? 0 : xdata[DATA_BITS-1]                   ;
+/* verilator lint_off WIDTHEXPAND */
+assign exp  = DATA_BITS - 1 - shift_amt + sigcout + BIAS     ;
+/* verilator lint_on WIDTHEXPAND */
+assign sig  = sigcout ? {1'b1, {(SIG_BITS-1){1'b0}}} : sigres;
+assign nx   = guardBit || roundBit || stickyBit              ;
 
 endmodule

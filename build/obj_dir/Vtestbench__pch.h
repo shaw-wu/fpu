@@ -5,7 +5,6 @@
 // unless using verilator public meta comments.
 // Suggest use Vtestbench.h instead.
 
-
 #ifndef VERILATED_VTESTBENCH__PCH_H_
 #define VERILATED_VTESTBENCH__PCH_H_  // guard
 
