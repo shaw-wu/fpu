@@ -3,7 +3,7 @@ module ldz #(
     parameter DATA_SIZE = 5 
 )(
     input  [DATA_BITS-1:0] in ,
-    output [DATA_SIZE-1:0] out
+    output [DATA_SIZE  :0] out
 );
 
     integer i;
@@ -19,7 +19,7 @@ module ldz #(
                 found_index = (DATA_BITS - 1) - i;
             end
         end
-        out = found_index;
+        out = {found_index == 0, found_index};
     end
 
 endmodule

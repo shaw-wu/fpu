@@ -6,12 +6,12 @@ module cvt_wf #(
 	parameter EXP_BITS  = 8 ,
 	parameter BIAS		= 127 
 )(
-	input				    u_i	 ,
-	input  [DATA_WIDTH-1:0] xdata,
-	output 					sign ,
-	output [EXP_BITS  -1:0] exp  ,
-	output [SIG_BITS  -1:0] sig  ,
-    output                  nx
+	input				   u_i	 ,
+	input  [DATA_BITS-1:0] xdata,
+	output 				   sign ,
+	output [EXP_BITS -1:0] exp  ,
+	output [SIG_BITS -1:0] sig  ,
+    output                 nx
 );
 
 wire [DATA_BITS-1:0] uint_data;

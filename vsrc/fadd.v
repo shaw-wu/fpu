@@ -37,8 +37,8 @@ module fadd #(
 	output                m_axis_res_sign  ,
 	output [SIG_BITS-1:0] m_axis_res_sig   ,
 	output [EXP_BITS-1:0] m_axis_res_exp   ,
-    input                 m_axis_res_isNAN ,
-    input                 m_axis_res_isINf ,
+    output                m_axis_res_isNAN ,
+    output                m_axis_res_isINf ,
     output [FLA_BITS-1:0] m_axis_res_fflags
 );
  
@@ -91,7 +91,7 @@ wire [SIG_BITS-1:0] sig_res = nsig_a + nsig_b;
 wire                of      = sig_res[SIG_BITS-1] ^ sig_res[SIG_BITS-2];
 
 //sig left shift
-wire [SIG_SIZE-1:0] lamt;
+wire [SIG_SIZE:0] lamt;
 ldz #(
     .DATA_BITS(SIG_BITS),
     .DATA_SIZE(SIG_SIZE)

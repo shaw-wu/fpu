@@ -19,7 +19,7 @@ module fpu #(
 	input  [FRM_BITS   -1:0] frm    ,
 	input  [FDATA_WIDTH-1:0] fina   ,
 	input  [FDATA_WIDTH-1:0] finb   ,
-	input [ DATA_WIDTH-1:0]  ina,
+	input  [ DATA_WIDTH-1:0]  ina   ,
 	output		             o_valid,
 	input                    o_ready,
 	output [            4:0] fflags ,//mask
@@ -244,11 +244,8 @@ tostdFN#(
 	.fp          (fpu_result      )
 );
 
-wire fval_a = fina[FRA_BITS+EXP_BITS-1:0]; 
-wire fval_b = finb[FRA_BITS+EXP_BITS-1:0]; 
 //feq
-wire feq_fresult = !(isNAN_a || isNAN_b) && (fina == finb);
-//feq_fflags = 0;
+wire feq_fresult = !(isNAN_a || isNAN_b) && (fina == finb); //feq_fflags = 0;
 
 //flt
 wire flt_fresult = isNAN_a || isNAN_b ? 0             :
@@ -263,16 +260,13 @@ wire fle_fresult = isNAN_a || isNAN_b ? 0              :
 wire [4:0] fle_fflags = {isNAN_a || isNAN_b, 4'b0};
 
 //fsgnj
-wire fsgnj_fresult = {sign_b, exp_a, fra_a};
-//fsgnj_fflags = 0;
+wire fsgnj_fresult = {sign_b, exp_a, fra_a}; //fsgnj_fflags = 0;
 
 //fsgnjn
-wire fsgnjn_fresult = {!sign_b, exp_a, fra_a};
-//fsgnjn_fflags = 0;
+wire fsgnjn_fresult = {!sign_b, exp_a, fra_a}; //fsgnjn_fflags = 0;
 
 //fsgnjx
-wire fsgnjx_fresult = {sign_a ^ sign_b, exp_a, fra_a};
-//fsgnjx_fflags = 0;
+wire fsgnjx_fresult = {sign_a ^ sign_b, exp_a, fra_a}; //fsgnjx_fflags = 0;
 
 //fcvt_w_s and fcvt_wu_s
 wire [DATA_WIDTH-1:0] fcss_fresult;
@@ -306,7 +300,7 @@ wire [FRA_BITS     :0] fcxs_sig    ;
 wire [FDATA_WIDTH-1:0] fcxs_fresult;
 wire cvt_wf_nx;
 cvt_wf #(
-	.DATA_WIDTH(DATA_WIDTH),
+	.DATA_BITS (DATA_WIDTH),
 	.SIG_BITS  (FRA_BITS+1),
 	.EXP_BITS  (EXP_BITS  )
 ) cvt_s_x(
@@ -317,7 +311,7 @@ cvt_wf #(
 	.sig   (fcxs_sig ),
 	.nx    (cvt_wf_nx)
 );
-assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[0+:FRA_BITS]};
+assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[FRA_BITS-1:0]};
 wire fcvt_s_w_fflags = {4'b0, cvt_fw_nx};
 
 //fresult
