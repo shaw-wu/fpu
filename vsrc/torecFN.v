@@ -8,15 +8,12 @@ module torecFN #(
 	parameter RECEXP_BITS = 9             ,
 	parameter EXP_OFFSET  = 9'b1_0000_0001
 )(
-	input  [FP_BITS    -1:0] fp          , 
-	output 					 sign        ,
-	output [RECEXP_BITS-1:0] exp		 ,
-	output [SIG_BITS   -1:0] sig		 ,
-	output 					 isNAN       ,
-	output 					 isINf       ,
-	output 					 isZero      ,
-	output 					 isNormalize ,
-	output 					 isUnormalize
+	input  [FP_BITS    -1:0] fp   , 
+	output 					 sign ,
+	output [RECEXP_BITS-1:0] exp  ,
+	output [SIG_BITS   -1:0] sig  ,
+	output 					 isNAN,
+	output 					 isINf
 );
 
 wire			     sign_st;
@@ -29,11 +26,11 @@ assign exp_st  = fp[FP_BITS -2:FRA_BITS];
 assign fra_st  = fp[FRA_BITS-1:       0];
 
 //expection
-assign isZero		= (exp_st == 0 && fra_st == 0);
-assign isUnormalize = (exp_st == 0 && fra_st != 0);
-assign isINf		= (exp_st == {EXP_BITS{1'b1}} && fra_st == 0);
 assign isNAN 		= (exp_st == {EXP_BITS{1'b1}} && fra_st != 0);
-assign isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
+assign isINf		= (exp_st == {EXP_BITS{1'b1}} && fra_st == 0);
+wire   isZero		= (exp_st == 0 && fra_st == 0);
+wire   isUnormalize = (exp_st == 0 && fra_st != 0);
+wire   isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
 
 //Leading Zero Detect
 wire [FP_LOG-1:0] pos;
