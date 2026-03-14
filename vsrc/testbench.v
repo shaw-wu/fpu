@@ -65,8 +65,8 @@ module testbench;
         o_ready = 1;
 
         // 打开文件
-        file_in = $fopen("test_vectors.txt", "r");
-        file_log = $fopen("log.txt", "w");
+        file_in = $fopen("test_vectors.tmp", "r");
+        file_log = $fopen("log.tmp", "w");
 
         if (file_in == 0 || file_log == 0) begin
             $display("错误：无法打开测试文件或日志文件！");

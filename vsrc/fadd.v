@@ -109,15 +109,15 @@ wire                stickyBit = (of && add_sub_res[0]) || sticky_shift;
 wire [EXP_BITS-1:0] s_exp_res  = comp_exp_ab ? exp_b + of : exp_a + of;
 /* verilator lint_on WIDTHEXPAND */
 
-//nan
-wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
-wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
-wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isNAN ? s_axis_a_sig  : s_axis_b_sig ;
-
-//inf
-wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
-wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
-wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isINf && s_axis_b_INf ? s_axis_a_sign ^ s_axis_b_sign : s_axis_a_sig  : s_axis_b_sig ;
+////nan
+//wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
+//wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
+//wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isNAN ? s_axis_a_sig  : s_axis_b_sig ;
+//
+////inf
+//wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
+//wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
+//wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isINf && s_axis_b_INf ? s_axis_a_sign ^ s_axis_b_sign : s_axis_a_sig  : s_axis_b_sig ;
 
 
 
@@ -139,7 +139,7 @@ round #(
 	.exp     (s_exp_res   ),
 	.sign    (add_sub_sign),
 	.Insticky(stickyBit   ),
-	.nv      (res_isNAN   ),
+	.nv      (1'b0        ),
 	.dz      (1'b0        ),
 	.frm     (frm         ),
 	.fflags  (fflags      ),
@@ -152,8 +152,8 @@ round #(
 assign m_axis_res_sign   = o_sign   ;
 assign m_axis_res_sig    = o_sig    ;
 assign m_axis_res_exp    = o_exp    ;
-assign m_axis_res_isNAN  = res_isNAN;
-assign m_axis_res_isINf  = res_isINf;
+assign m_axis_res_isNAN  = 1'b0;
+assign m_axis_res_isINf  = 1'b0;
 assign m_axis_res_fflags = fflags   ;
 
 endmodule
