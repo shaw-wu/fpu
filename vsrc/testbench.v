@@ -110,7 +110,7 @@ module testbench;
                 end
 
                 if (vector_cnt % 100 == 0) begin
-                    //if(vector_cnt > 2500) break;
+                    if(vector_cnt > 2500) break;
                     $display("已处理 %0d 条测试向量...", vector_cnt);
                 end
             end

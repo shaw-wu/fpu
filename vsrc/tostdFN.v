@@ -35,7 +35,7 @@ assign exp_st = isNAN        ? {EXP_BITS{1'b1}} :
 				isUnormalize ? {EXP_BITS{1'b0}} :
 				isNormalize  ? _exp[7:0]        : {EXP_BITS{1'b1}}; 
 
-assign fra_st = isNAN        ? sig[SIG_BITS-1 -: FRA_BITS]       :
+assign fra_st = isNAN        ? sig[SIG_BITS-2 -: FRA_BITS]       :
 				isINf  		 ? {FRA_BITS{1'b0}}			         :
 				isZero 		 ? {FRA_BITS{1'b0}}			         :
 				isUnormalize ? sig[SIG_BITS-2-:FRA_BITS]         :

@@ -55,13 +55,13 @@ endfunction;
 //EXP/SIG logic      
 assign exp = isNAN		  ? fill_exp(3'b111)                                                                   :
 			 isINf  	  ? fill_exp(3'b110)                                                                   :
-			 isZero 	  ? fill_exp(3'b000)                                                                   :
+			 isZero 	  ? 0                                                                                   :
 			 isUnormalize ? (EXP_OFFSET + {{(RECEXP_BITS-1){1'b0}}, 1'b1} - {{(RECEXP_BITS-FP_LOG){1'b0}}, n}) :
 			 isNormalize  ? ({1'b0, exp_st} + EXP_OFFSET)													   : fill_exp(3'b111); 
 
 assign sig = isNAN		  ? fill_sig(fra_st)									   :
 			 isINf  	  ? fill_sig({FRA_BITS{1'b1}})							   :
-			 isZero 	  ? fill_sig({FRA_BITS{1'b0}})							   :
+			 isZero 	  ? 0                            						   :
 			 isUnormalize ? fill_sig({fra_st << {{(FRA_BITS-FP_LOG-1){1'b0}}, n}}) :
 			 isNormalize  ? fill_sig(fra_st)									   : fill_sig(fra_st);
 

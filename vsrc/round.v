@@ -43,7 +43,7 @@ assign o_sign = sign;
 
 wire nx = guardBit || roundBit || stickyBit;
 wire of = o_exp > 9'b1_0111_1111;//exp > 127
-wire uf = isUnormalize; //exp < -126-23 
+wire uf = isUnormalize && nx; //exp < -126-23 
 
 assign fflags = {nv, dz, of, uf, nx};
 

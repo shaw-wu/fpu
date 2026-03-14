@@ -56,47 +56,39 @@ wire [EXP_BITS-1:0] exp_b  = s_axis_b_exp ;
 wire is_sub = s_axis_sel;
 
 //exp compare(9 bits)
-wire [EXP_BITS-1:0] comp_exp_a   = {!exp_a[EXP_BITS-1], exp_a[0 +: EXP_BITS-1]};//to two's complement
-wire [EXP_BITS-1:0] comp_exp_b   = {!exp_b[EXP_BITS-1], exp_b[0 +: EXP_BITS-1]};//to two's complement
-
-wire [EXP_BITS-1:0] neg_exp_b    = ~comp_exp_b  + 1        ;
-wire [EXP_BITS-1:0] exp_diff     =  comp_exp_a  + neg_exp_b;//a - b
-wire [EXP_BITS-1:0] neg_exp_diff = ~exp_diff    + 1        ;//b - a
-
-wire sign_exp_diff = exp_diff[EXP_BITS-1];//a < b
+wire                comp_exp_ab  = exp_a < exp_b;
+wire [EXP_BITS-1:0] exp_diff     = comp_exp_ab ? exp_b - exp_a : exp_a - exp_b;
 
 //sig right shift
 /* verilator lint_off WIDTHTRUNC*/
-wire [SIG_SIZE    :0] sig_amt_a = (neg_exp_diff >= 32) ? 32 : neg_exp_diff + 1;
-wire [SIG_SIZE    :0] sig_amt_b = (exp_diff     >= 32) ? 32 : exp_diff     + 1;
+wire [SIG_SIZE    :0] sig_amt = (exp_diff >= 32) ? 32 : exp_diff;
 /* verilator lint_on WIDTHTRUNC*/
-wire [2*SIG_BITS-1:0] full_sigShift_a =  sign_exp_diff ? {sig_a, {SIG_BITS{1'b0}}} >> sig_amt_a : {sig_a, {SIG_BITS{1'b0}}};
-wire [2*SIG_BITS-1:0] full_sigShift_b = !sign_exp_diff ? {sig_b, {SIG_BITS{1'b0}}} >> sig_amt_b : {sig_b, {SIG_BITS{1'b0}}};
+wire [2*SIG_BITS-1:0] full_sigShift_a =  comp_exp_ab ? {sig_a, {SIG_BITS{1'b0}}} >> sig_amt : {sig_a, {SIG_BITS{1'b0}}};
+wire [2*SIG_BITS-1:0] full_sigShift_b = !comp_exp_ab ? {sig_b, {SIG_BITS{1'b0}}} >> sig_amt : {sig_b, {SIG_BITS{1'b0}}};
 wire sticky_a = |full_sigShift_a[0+:(2*SIG_BITS-FRA_BITS)];
 wire sticky_b = |full_sigShift_b[0+:(2*SIG_BITS-FRA_BITS)];
 
-wire sticky_shift = sign_exp_diff ? sticky_a : sticky_b; 
+wire sticky_shift = comp_exp_ab ? sticky_a : sticky_b; 
 
 wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a[SIG_BITS+:SIG_BITS];
 wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b[SIG_BITS+:SIG_BITS];
 
-//sig add/sub(32 bits)
-wire                sel_sign_b = sign_b ^ is_sub;
-wire [SIG_BITS-2:0] sign_a31   = {(SIG_BITS-1){sign_a}}             ;
-wire [SIG_BITS-2:0] neg_sig_a  = sign_a31 ^ sigShift_a[SIG_BITS-2:0];
-wire [SIG_BITS-2:0] sign_b31   = {(SIG_BITS-1){sign_b}}             ;
-wire [SIG_BITS-2:0] neg_sig_b  = sign_b31 ^ sigShift_b[SIG_BITS-2:0];
+//sig origin add/sub(32 bits)
+wire                overflow;
 
-/*verilator lint_off WIDTHEXPAND */
-wire [SIG_BITS-1:0] nsig_a  = {(sigShift_a != 0) && sign_a    , neg_sig_a + sign_a};
-wire [SIG_BITS-1:0] nsig_b  = {(sigShift_b != 0) && sel_sign_b, neg_sig_b + sign_b};
-/*verilator lint_on WIDTHEXPAND */
-wire                s_sign_res = add_res[SIG_BITS-1];
-wire [SIG_BITS-1:0] add_res = nsig_a + nsig_b; 
-/*verilator lint_off WIDTHCONCAT */
-wire [SIG_BITS-1:0] sig_res = {s_sign_res, s_sign_res ? ~add_res[SIG_BITS-2:0] + 1 : add_res[SIG_BITS-2:0]}; 
-/*verilator lint_on WIDTHCONCAT*/
-wire                of      = sig_res[SIG_BITS-1] ^ sig_res[SIG_BITS-2];
+wire                sel_sign_b   = sign_b ^ is_sub;
+wire                is_effsub    = sel_sign_b ^ sign_a;
+wire                comp_op      = sigShift_a > sigShift_b;
+
+wire [SIG_BITS-1:0] eff_sub_res  = comp_op ? sigShift_a - sigShift_b : sigShift_b - sigShift_a;
+wire                eff_sub_sign = comp_op ? sign_a : sign_b;
+wire [SIG_BITS-1:0] eff_add_res;
+assign {overflow,   eff_add_res} = sigShift_a + sigShift_b;
+wire                eff_add_sign = sign_a;
+
+wire [SIG_BITS-1:0] add_sub_res  = is_effsub ? eff_sub_res  : eff_add_res ;
+wire                add_sub_sign = is_effsub ? eff_sub_sign : eff_add_sign;
+wire                of           = is_effsub ? 1'b0         : overflow    ;
 
 //sig left shift
 wire [SIG_SIZE:0] pos;
@@ -104,21 +96,30 @@ ldz #(
     .DATA_BITS(SIG_BITS),
     .DATA_SIZE(SIG_SIZE)
 ) LDZ (
-    .in  ({sig_res[0+:SIG_BITS-1], 1'b0}),
-    .out (pos                           )
+    .in  (add_sub_res),
+    .out (pos        )
 );
 
 wire [SIG_SIZE-1:0] lamt = pos[SIG_SIZE-1:0];
-wire [SIG_BITS-1:0] s_sig_res = sig_res << lamt;
+wire [SIG_BITS-1:0] s_sig_res = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : add_sub_res << lamt;
+wire                stickyBit = (of && add_sub_res[0]) || sticky_shift;
 
-//exp sign
+//exp 
 /* verilator lint_off WIDTHEXPAND */
-wire [EXP_BITS-1:0] s_exp_res  = sign_exp_diff ? exp_b : exp_a ;
+wire [EXP_BITS-1:0] s_exp_res  = comp_exp_ab ? exp_b + of : exp_a + of;
 /* verilator lint_on WIDTHEXPAND */
 
-//exception
-wire res_isNAN  = s_axis_a_isNAN || s_axis_b_isNAN;
-wire res_isINf  = s_axis_a_isINf || s_axis_b_isINf;
+//nan
+wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
+wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
+wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isNAN ? s_axis_a_sig  : s_axis_b_sig ;
+
+//inf
+wire                nan_sign_res = s_axis_a_isNAN ? s_axis_a_sign : s_axis_b_sign;
+wire [EXP_BITS-1:0] nan_exp_res  = s_axis_a_isNAN ? s_axis_a_exp  : s_axis_b_exp ;
+wire [SIG_BITS-1:0] nan_sig_res  = s_axis_a_isINf && s_axis_b_INf ? s_axis_a_sign ^ s_axis_b_sign : s_axis_a_sig  : s_axis_b_sig ;
+
+
 
 //round
 wire [SIG_BITS -1:0] o_sig ;
@@ -136,8 +137,8 @@ round #(
 ) ROUND (
 	.sig     (s_sig_res   ),
 	.exp     (s_exp_res   ),
-	.sign    (s_sign_res  ),
-	.Insticky(sticky_shift),
+	.sign    (add_sub_sign),
+	.Insticky(stickyBit   ),
 	.nv      (res_isNAN   ),
 	.dz      (1'b0        ),
 	.frm     (frm         ),
