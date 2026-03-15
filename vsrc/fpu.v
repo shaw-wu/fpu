@@ -25,6 +25,8 @@ module fpu #(
 	output [FDATA_BITS-1:0] fresult
 );
 
+localparam QNAN_S = 32'h7FC00000;
+
 wire fadd_s = sel == 'd0 ;
 wire fsub_s = sel == 'd1 ;
 //wire fmul_s = sel == 'd2 ;
@@ -100,14 +102,18 @@ wire add_fresult_ready = fadd_s && o_ready && (current_state == WORK);
 wire sign_a;
 wire [EXP_BITS  :0] exp_a;//recFN exp
 wire [SIG_BITS-1:0] sig_a;
-wire isNAN_a       ;
-wire isINf_a       ;
+wire isQNAN_a;
+wire isSNAN_a;
+wire isINf_a ;
+wire isZero_a;
 
 wire sign_b;
 wire [EXP_BITS  :0] exp_b;//recFN exp
 wire [SIG_BITS-1:0] sig_b;
-wire isNAN_b       ;
-wire isINf_b       ;
+wire isQNAN_b;
+wire isSNAN_b;
+wire isINf_b ;
+wire isZero_b;
 
 torecFN #(
     .FP_BITS    (FDATA_BITS ),
@@ -122,8 +128,10 @@ torecFN #(
 	.sign        (sign_a        ),
 	.exp		 (exp_a	        ),
 	.sig		 (sig_a	        ),
-	.isNAN       (isNAN_a       ),
-	.isINf       (isINf_a       )
+	.isQNAN      (isQNAN_a      ),
+	.isSNAN      (isSNAN_a      ),
+	.isINf       (isINf_a       ),
+	.isZero      (isZero_a      )
 );
 
 torecFN #(
@@ -139,8 +147,10 @@ torecFN #(
 	.sign        (sign_b        ),
 	.exp		 (exp_b	        ),
 	.sig		 (sig_b	        ),
-	.isNAN       (isNAN_b       ),
-	.isINf       (isINf_b       )
+	.isQNAN      (isQNAN_b      ),
+	.isSNAN      (isSNAN_b      ),
+	.isINf       (isINf_b       ),
+	.isZero      (isZero_b      )
 );
 
 //fadd / sign
@@ -149,8 +159,8 @@ wire add_sub_sel = fsub_s;
 wire                add_res_sign        ;
 wire [SIG_BITS-1:0] add_res_sig         ;
 wire [EXP_BITS  :0] add_res_exp         ;
-wire                add_res_isNAN       ;
-wire                add_res_isINf       ;
+//wire                add_res_isNAN       ;
+//wire                add_res_isINf       ;
 wire [         4:0] add_res_fflags      ;
 
 fadd #(
@@ -173,8 +183,10 @@ fadd #(
 	.s_axis_a_sign          (sign_a              ),
 	.s_axis_a_sig           (sig_a               ),
 	.s_axis_a_exp           (exp_a               ),
-	.s_axis_a_isNAN         (isNAN_a             ),
+	.s_axis_a_isQNAN        (isQNAN_a            ),
+	.s_axis_a_isSNAN        (isSNAN_a            ),
 	.s_axis_a_isINf         (isINf_a             ),
+	.s_axis_a_isZero        (isZero_a            ),
 //finb
 	.s_axis_b_tvalid        (add_finb_valid      ),
 	.s_axis_b_tready        (add_finb_ready      ),
@@ -182,8 +194,10 @@ fadd #(
 	.s_axis_b_sign          (sign_b              ),
 	.s_axis_b_sig           (sig_b               ),
 	.s_axis_b_exp           (exp_b               ),
-	.s_axis_b_isNAN         (isNAN_b             ),
+	.s_axis_b_isQNAN        (isQNAN_b            ),
+	.s_axis_b_isSNAN        (isSNAN_b            ),
 	.s_axis_b_isINf         (isINf_b             ),
+	.s_axis_b_isZero        (isZero_b            ),
 //fresult
 	.m_axis_res_tvalid      (add_fresult_valid   ),
 	.m_axis_res_tready      (add_fresult_ready   ),
@@ -191,8 +205,8 @@ fadd #(
 	.m_axis_res_sign        (add_res_sign        ),
 	.m_axis_res_sig         (add_res_sig         ),
 	.m_axis_res_exp         (add_res_exp         ),
-	.m_axis_res_isNAN       (add_res_isNAN       ),
-	.m_axis_res_isINf       (add_res_isINf       ),
+	//.m_axis_res_isQNAN      (add_res_isNAN       ),
+	//.m_axis_res_isINf       (add_res_isINf       ),
 	.m_axis_res_fflags      (add_res_fflags      )
 );
 
@@ -200,8 +214,8 @@ fadd #(
 wire                  sign_res  = add_res_sign ;
 wire [EXP_BITS    :0] exp_res   = add_res_exp  ;
 wire [SIG_BITS  -1:0] sig_res   = add_res_sig  ;
-wire                  isNAN_res = add_res_isNAN;
-wire                  isINf_res = add_res_isINf;
+//wire                  isNAN_res = add_res_isNAN;
+//wire                  isINf_res = add_res_isINf;
 
 //torecFN
 wire [FDATA_BITS-1:0] fpu_result;
@@ -213,34 +227,37 @@ tostdFN#(
     .RECEXP_BITS(EXP_BITS+1 ),
     .EXP_OFFSET (EXP_OFFSET )
 ) tostdFN (
-	.sign        (sign_res        ),
-	.exp		 (exp_res	      ),
-	.sig		 (sig_res	      ),
-	.isNAN       (isNAN_res       ),
-	.isINf       (isINf_res       ),
-	.fp          (fpu_result      )
+	.sign       (sign_res       ),
+	.exp		(exp_res	    ),
+	.sig		(sig_res	    ),
+	//.isNAN      (isNAN_res      ),
+	//.isINf      (isINf_res      ),
+	.fp         (fpu_result     )
 );
 
 //feq
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] feq_fresult = !(isNAN_a || isNAN_b) && (fina == finb); //feq_fflags = 0;
+wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b) ? QNAN_S : !(isQNAN_a || isQNAN_b) && (fina == finb); 
 /* verilator lint_on WIDTHEXPAND */
+wire [4:0] feq_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //flt
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] flt_fresult = isNAN_a || isNAN_b ? 0             :
-                                    sign_a ^ sign_b    ? sign_a        :
-                                    !sign_a            ? exp_a < exp_b : exp_a > exp_b;
+wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b ? QNAN_S        :
+                                    isQNAN_a || isQNAN_b ? 0             :
+                                    sign_a ^ sign_b      ? sign_a        :
+                                    !sign_a              ? exp_a < exp_b : exp_a > exp_b;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] flt_fflags = {isNAN_a || isNAN_b, 4'b0};                                               
+wire [4:0] flt_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //fle
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] fle_fresult = isNAN_a || isNAN_b ? 0              :
-                                    sign_a ^ sign_b    ? sign_a         :
-                                    !sign_a            ? exp_a <= exp_b : exp_a >= exp_b;
+wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b ? QNAN_S        :
+                                    isQNAN_a || isQNAN_b ? 0              :
+                                    sign_a ^ sign_b      ? sign_a         :
+                                    !sign_a              ? exp_a <= exp_b : exp_a >= exp_b;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] fle_fflags = {isNAN_a || isNAN_b, 4'b0};
+wire [4:0] fle_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};
 
 wire                st_sign_a = fina[FDATA_BITS-1          ];
 wire [EXP_BITS-1:0] st_exp_a  = fina[FDATA_BITS-2-:EXP_BITS];
@@ -265,17 +282,17 @@ cvt_fw #(
 	.SIG_BITS (SIG_BITS  ),
 	.EXP_BITS (EXP_BITS+1)
 ) cvt_x_s(
-	.u_i   (fcvt_wu_s	   ),
-	.sign  (sign_a         ),
-	.exp   (exp_a          ),
-	.sig   (sig_a          ),
-	.w_res (fcss_fresult   ),
-	.wu_res(fcsu_fresult   ),
-	.frm   (frm			   ),
-	.isnan (isNAN_a        ),
-	.isinf (isINf_a		   ),
-	.nv	   (cvt_fw_nv	   ),
-	.nx	   (cvt_fw_nx	   )
+	.u_i   (fcvt_wu_s	        ),
+	.sign  (sign_a              ),
+	.exp   (exp_a               ),
+	.sig   (sig_a               ),
+	.w_res (fcss_fresult        ),
+	.wu_res(fcsu_fresult        ),
+	.frm   (frm			        ),
+	.isnan (isQNAN_a || isSNAN_a),
+	.isinf (isINf_a		        ),
+	.nv	   (cvt_fw_nv	        ),
+	.nx	   (cvt_fw_nx	        )
 );
 wire [4:0] fcvt_w_s_fflags = {cvt_fw_nv, 1'b0, 1'b0, 1'b0, cvt_fw_nx};
 
@@ -317,7 +334,8 @@ assign fresult = fadd_s || fsub_s                     ? fpu_result     :
                  fcvt_s_wu                            ? fcxs_fresult   : 0;
 
 assign fflags = fadd_s || fsub_s                          ? add_res_fflags  :
-                feq_s  || fsgnj_s || fsgnjn_s || fsgnjx_s ? 5'b0            :
+                fsgnj_s || fsgnjn_s || fsgnjx_s           ? 5'b0            :
+                feq_s                                     ? feq_fflags      :
                 flt_s                                     ? flt_fflags      :
                 fle_s                                     ? fle_fflags      : 
                 fcvt_w_s || fcvt_wu_s                     ? fcvt_w_s_fflags :

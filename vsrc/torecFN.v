@@ -8,12 +8,14 @@ module torecFN #(
 	parameter RECEXP_BITS = 9             ,
 	parameter EXP_OFFSET  = 9'b0_1000_0001
 )(
-	input  [FP_BITS    -1:0] fp   , 
-	output 					 sign ,
-	output [RECEXP_BITS-1:0] exp  ,
-	output [SIG_BITS   -1:0] sig  ,
-	output 					 isNAN,
-	output 					 isINf
+	input  [FP_BITS    -1:0] fp    , 
+	output 					 sign  ,
+	output [RECEXP_BITS-1:0] exp   ,
+	output [SIG_BITS   -1:0] sig   ,
+	output 					 isQNAN,
+	output 					 isSNAN,
+	output 					 isINf ,
+	output 					 isZero
 );
 
 wire			     sign_st;
@@ -26,9 +28,10 @@ assign exp_st  = fp[FP_BITS -2:FRA_BITS];
 assign fra_st  = fp[FRA_BITS-1:       0];
 
 //expection
-assign isNAN 		= (exp_st == {EXP_BITS{1'b1}} && fra_st != 0);
-assign isINf		= (exp_st == {EXP_BITS{1'b1}} && fra_st == 0);
-wire   isZero		= (exp_st == 0 && fra_st == 0);
+assign isQNAN 		= (exp_st == {EXP_BITS{1'b1}} &&  fra_st[FRA_BITS-1]               );
+assign isSNAN 		= (exp_st == {EXP_BITS{1'b1}} && !fra_st[FRA_BITS-1] && fra_st != 0);
+assign isINf		= (exp_st == {EXP_BITS{1'b1}} &&  fra_st == 0);
+assign isZero		= (exp_st == 0 && fra_st == 0);
 wire   isUnormalize = (exp_st == 0 && fra_st != 0);
 wire   isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
 
@@ -42,7 +45,7 @@ ldz LZD (
 	.out(pos)
 );
 wire [FP_LOG-1:0] shift_amt = pos[FP_LOG-1:0];
-assign n = shift_amt + 1;  
+assign n = shift_amt;  
 
 function [RECEXP_BITS-1:0] fill_exp(input [2:0] top);
 	fill_exp = {top , {(RECEXP_BITS-3){1'b1}}};
@@ -53,17 +56,19 @@ function [SIG_BITS-1:0] fill_sig(input [FRA_BITS-1:0] fr);
 endfunction;	
                      
 //EXP/SIG logic      
-assign exp = isNAN		  ? fill_exp(3'b111)                                                                   :
-			 isINf  	  ? fill_exp(3'b110)                                                                   :
-			 isZero 	  ? 0                                                                                   :
-			 isUnormalize ? (EXP_OFFSET + {{(RECEXP_BITS-1){1'b0}}, 1'b1} - {{(RECEXP_BITS-FP_LOG){1'b0}}, n}) :
-			 isNormalize  ? ({1'b0, exp_st} + EXP_OFFSET)													   : fill_exp(3'b111); 
+assign exp = isQNAN || isSNAN ? fill_exp(3'b111)                :
+			 isINf  	      ? fill_exp(3'b110)                :
+			 isZero 	      ? 0                               :
+             /* verilator lint_off WIDTHEXPAND */
+			 isUnormalize     ? (EXP_OFFSET - n)                : 
+             /* verilator lint_on WIDTHEXPAND */
+			 isNormalize      ? ({1'b0, exp_st} + EXP_OFFSET)	: fill_exp(3'b111); 
 
-assign sig = isNAN		  ? fill_sig(fra_st)									   :
-			 isINf  	  ? fill_sig({FRA_BITS{1'b1}})							   :
-			 isZero 	  ? 0                            						   :
-			 isUnormalize ? fill_sig({fra_st << {{(FRA_BITS-FP_LOG-1){1'b0}}, n}}) :
-			 isNormalize  ? fill_sig(fra_st)									   : fill_sig(fra_st);
+assign sig = isQNAN || isSNAN ? fill_sig(fra_st)									     :
+			 isINf  	      ? fill_sig({FRA_BITS{1'b1}})							     :
+			 isZero 	      ? 0                            						     :
+			 isUnormalize     ? {fra_st << n, {(SIG_BITS-FRA_BITS){1'b0}}}               :
+			 isNormalize      ? fill_sig(fra_st)									     : fill_sig(fra_st);
 
 assign sign = sign_st;
 

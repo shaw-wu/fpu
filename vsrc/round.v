@@ -19,7 +19,7 @@ module round #(
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 wire [EXP_BITS-1:0] Unormalize_n = 9'b0_1000_0001 - exp; //-127 - e
 
-wire [SIG_BITS-1:0] shift_sig = isUnormalize ? sig >> (Unormalize_n + 1) : sig;
+wire [SIG_BITS-1:0] shift_sig = isUnormalize ? sig >> (Unormalize_n + 1) : sig; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
 
 wire lsbBit   = shift_sig[SIG_BITS-FRA_BITS  ];
 wire guardBit = shift_sig[SIG_BITS-FRA_BITS-1];
@@ -41,7 +41,7 @@ assign o_exp = exp + {{(EXP_BITS-1){1'b0}}, sig_cout};
 assign o_sig = sig_cout ? {1'b1, {(SIG_BITS-1){1'b0}}} : {sig_res, {(SIG_BITS-FRA_BITS){1'b0}}};
 assign o_sign = sign;
 
-wire nx = guardBit || roundBit || stickyBit;
+wire nx = guardBit || roundBit || stickyBit || {o_exp[EXP_BITS-1:EXP_BITS-3] == 3'b110};
 wire of = o_exp > 9'b1_0111_1111;//exp > 127
 wire uf = isUnormalize && nx; //exp < -126-23 
 

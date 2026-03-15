@@ -21,7 +21,7 @@ module ldz #(
                 /*verilator lint_on WIDTHTRUNC*/
             end
         end
-        out = {found_index == 0, found_index};
+        out = {in == 0, found_index};
     end
 
 endmodule

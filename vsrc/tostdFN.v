@@ -11,8 +11,8 @@ module tostdFN #(
 	input 					 sign        ,
 	input  [RECEXP_BITS-1:0] exp		 ,
 	input  [SIG_BITS   -1:0] sig		 ,
-	input 					 isNAN       ,
-	input 					 isINf       ,
+	//input 					 isNAN       ,
+	//input 					 isINf       ,
 	output [FP_BITS    -1:0] fp           
 );
 
@@ -20,6 +20,8 @@ wire [EXP_BITS-1 :0] exp_st ;
 wire [FRA_BITS-1 :0] fra_st ;
 
 //exception value
+wire isNAN        =  exp[RECEXP_BITS-1-:3] == 3'b111;
+wire isINf        =  exp[RECEXP_BITS-1-:3] == 3'b110;
 wire isZero       =  exp[RECEXP_BITS-1-:3] == 3'b000;
 wire isNormalize  = (exp >= 9'b0_1000_0010) && (exp <= 9'b1_0111_1111);
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
@@ -38,7 +40,7 @@ assign exp_st = isNAN        ? {EXP_BITS{1'b1}} :
 assign fra_st = isNAN        ? sig[SIG_BITS-2 -: FRA_BITS]       :
 				isINf  		 ? {FRA_BITS{1'b0}}			         :
 				isZero 		 ? {FRA_BITS{1'b0}}			         :
-				isUnormalize ? sig[SIG_BITS-2-:FRA_BITS]         :
+				isUnormalize ? sig[SIG_BITS-2-:FRA_BITS]         :   //unormalize : sigshift done
 				isNormalize  ? sig[SIG_BITS-2-:FRA_BITS]         : sig[SIG_BITS-2-:FRA_BITS] ;	
 
 assign fp = {sign, exp_st, fra_st};
