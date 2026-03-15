@@ -57,7 +57,7 @@ module testbench;
         // 初始化信号
         rst = 1;
         i_valid = 0;
-        sel = 4'b0000; // 假设 0 是加法，根据你具体的逻辑修改
+        sel = 4'b1011; // 假设 0 是加法，根据你具体的逻辑修改
         frm = 3'b000;
         fina = 0;
         finb = 0;
@@ -84,9 +84,10 @@ module testbench;
         // 循环读取测试向量
         // 格式: [fina finb res fflags]
         while (!$feof(file_in)) begin
-            status = $fscanf(file_in, "%h %h %h %h\n", fina, finb, exp_res, exp_fflags);
+            //status = $fscanf(file_in, "%h %h %h %h\n", fina, finb, exp_res, exp_fflags);
+            status = $fscanf(file_in, "%h %h %h\n", fina, exp_res, exp_fflags);
             
-            if (status == 4) begin
+            if (status == 3) begin
                 vector_cnt = vector_cnt + 1;
                 
                 // 发起握手请求
@@ -101,13 +102,22 @@ module testbench;
                 @(posedge clk);
                 
                 // 比对结果
+                //if (fresult !== exp_res || fflags !== exp_fflags) begin
+                //    error_cnt = error_cnt + 1;
+                //    $fdisplay(file_log, "[Error] Vector %0d: A=%h, B=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
+                //              vector_cnt, fina, finb, fresult, fflags, exp_res, exp_fflags);
+                //end else begin
+                //    $fdisplay(file_log, "[Pass] Vector %0d", vector_cnt);
+                //end
+                
                 if (fresult !== exp_res || fflags !== exp_fflags) begin
                     error_cnt = error_cnt + 1;
-                    $fdisplay(file_log, "[Error] Vector %0d: A=%h, B=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
-                              vector_cnt, fina, finb, fresult, fflags, exp_res, exp_fflags);
+                    $fdisplay(file_log, "[Error] Vector %0d: A=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
+                              vector_cnt, fina, fresult, fflags, exp_res, exp_fflags);
                 end else begin
                     $fdisplay(file_log, "[Pass] Vector %0d", vector_cnt);
                 end
+
 
                 if (vector_cnt % 100 == 0) begin
                     //if(vector_cnt > 2500) break;

@@ -25,7 +25,7 @@ module fpu #(
 	output [FDATA_BITS-1:0] fresult
 );
 
-localparam QNAN_S = 32'h7FC00000;
+//localparam QNAN_S = 32'h7FC00000;
 
 wire fadd_s = sel == 'd0 ;
 wire fsub_s = sel == 'd1 ;
@@ -237,25 +237,25 @@ tostdFN#(
 
 //feq
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b) ? QNAN_S : !(isQNAN_a || isQNAN_b) && (fina == finb); 
+wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b) ? 0 : (fina == finb) || ((fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0)); 
 /* verilator lint_on WIDTHEXPAND */
 wire [4:0] feq_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //flt
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b ? QNAN_S        :
-                                    isQNAN_a || isQNAN_b ? 0             :
-                                    sign_a ^ sign_b      ? sign_a        :
-                                    !sign_a              ? exp_a < exp_b : exp_a > exp_b;
+wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b               ? 0           :
+                                    (fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0) ? 0           :
+                                    sign_a ^ sign_b                                            ? sign_a      :
+                                    !sign_a                                                    ? fina < finb : fina > finb;
 /* verilator lint_on WIDTHEXPAND */
 wire [4:0] flt_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //fle
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b ? QNAN_S        :
-                                    isQNAN_a || isQNAN_b ? 0              :
-                                    sign_a ^ sign_b      ? sign_a         :
-                                    !sign_a              ? exp_a <= exp_b : exp_a >= exp_b;
+wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b               ? 0            :
+                                    (fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0) ? 1           :
+                                    sign_a ^ sign_b                                            ? sign_a       :
+                                    !sign_a                                                    ? fina <= finb : fina >= finb;
 /* verilator lint_on WIDTHEXPAND */
 wire [4:0] fle_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};
 

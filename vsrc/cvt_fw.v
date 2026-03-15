@@ -20,7 +20,7 @@ module cvt_fw #(
 localparam RE_DATAWIDTH = DATA_BITS + (1 << (EXP_BITS-1));
 
 //shift amt
-wire [$clog2(DATA_BITS)-1:0] shift_amt;
+wire [EXP_BITS-1:0] shift_amt;
 /* verilator lint_off SELRANGE*/
 /* verilator lint_off WIDTHTRUNC*/
 assign shift_amt = RE_DATAWIDTH - 1 - exp;
@@ -62,6 +62,6 @@ assign wu_res = of ? {DATA_BITS{1'b1}} : sigres  ;
 assign w_res  = of ? of_wres           : comp_res;
 
 assign nv = isnan || isinf || of;
-assign nx = !of && (guardBit || roundBit || stickyBit);
+assign nx = !nv && (guardBit || roundBit || stickyBit);
 
 endmodule

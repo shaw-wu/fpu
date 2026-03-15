@@ -16,6 +16,8 @@ module round #(
     output                 o_sign      
 );
 
+localparam EXPNOR_MAX = {3'b101, {(EXP_BITS-3){1'b1}}};
+
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 wire [EXP_BITS-1:0] Unormalize_n = 9'b0_1000_0001 - exp; //-127 - e
 
@@ -37,12 +39,26 @@ wire sig_cout;
 assign {sig_cout, sig_res} = shift_sig[SIG_BITS-1-:FRA_BITS] + roundIncre;
 /*verilator lint_on WIDTHEXPAND*/
 
-assign o_exp = exp + {{(EXP_BITS-1){1'b0}}, sig_cout};
-assign o_sig = sig_cout ? {1'b1, {(SIG_BITS-1){1'b0}}} : {sig_res, {(SIG_BITS-FRA_BITS){1'b0}}};
+wire [SIG_BITS-1:0] of_sig = (frm == 3'b000) ? {1'b1, {(SIG_BITS-1){1'b0 }}} :
+                             (frm == 3'b001) ? {SIG_BITS{1'b1}}              :
+                             (frm == 3'b010) ? {1'b1, {(SIG_BITS-1){!sign}}} :
+                             (frm == 3'b011) ? {1'b1, {(SIG_BITS-1){ sign}}} :
+                             (frm == 3'b100) ? {1'b1, {(SIG_BITS-1){1'b0 }}} : 0;
+wire [EXP_BITS-1:0] of_exp = (frm == 3'b000) ? EXPNOR_MAX + 1     :
+                             (frm == 3'b001) ? EXPNOR_MAX         :
+/*verilator lint_off WIDTHEXPAND*/
+                             (frm == 3'b010) ? EXPNOR_MAX + sign  :
+                             (frm == 3'b011) ? EXPNOR_MAX + !sign :
+/*verilator lint_on WIDTHEXPAND*/
+                             (frm == 3'b100) ? EXPNOR_MAX + 1     : 0;
+
+assign o_exp = of ? of_exp : exp + {{(EXP_BITS-1){1'b0}}, sig_cout};
+assign o_sig = of       ? of_sig                       : 
+               sig_cout ? {1'b1, {(SIG_BITS-1){1'b0}}} : {sig_res, {(SIG_BITS-FRA_BITS){1'b0}}};
 assign o_sign = sign;
 
-wire nx = guardBit || roundBit || stickyBit || {o_exp[EXP_BITS-1:EXP_BITS-3] == 3'b110};
-wire of = o_exp > 9'b1_0111_1111;//exp > 127
+wire nx = guardBit || roundBit || stickyBit || of;
+wire of = (exp > EXPNOR_MAX) || ((exp + {{(EXP_BITS-1){1'b0}}, sig_cout}) > EXPNOR_MAX);//exp > 127
 wire uf = isUnormalize && nx; //exp < -126-23 
 
 assign fflags = {nv, dz, of, uf, nx};

@@ -93,7 +93,7 @@ wire                comp_op      = sigShift_a > sigShift_b;
 /* verilator lint_off WIDTHEXPAND */
 wire [SIG_BITS-1:0] eff_sub_res  = comp_op ? sigShift_a - sigShift_b - sticky_b: sigShift_b - sigShift_a - sticky_a;//sticky : Borrow in
 /* verilator lint_on WIDTHEXPAND */
-wire                eff_sub_sign = comp_op ? sign_a : sign_b;
+wire                eff_sub_sign = comp_op ? sign_a : sel_sign_b;
 wire [SIG_BITS-1:0] eff_add_res;
 assign {overflow,   eff_add_res} = sigShift_a + sigShift_b;
 wire                eff_add_sign = sign_a;
@@ -116,50 +116,13 @@ wire [SIG_SIZE-1:0] lamt = pos[SIG_SIZE-1:0];
 wire [SIG_BITS  :0] ls_sig_res = {add_sub_res, sticky_shift} << lamt;
 wire [SIG_BITS-1:0] s_sig_res  = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : (pos[SIG_SIZE] ? 0 : ls_sig_res[SIG_BITS:1]);//of == 1 -> add_sub_res == 0
 wire                stickyBit  = of ? add_sub_res[0] || sticky_shift    : (pos[SIG_SIZE] ? 0 : ls_sig_res[0]         );
-wire                s_sign_res = pos[SIG_SIZE] && !of ? 0 : add_sub_sign;
+wire                s_sign_res = pos[SIG_SIZE] && !of ? frm == 3'b010 : add_sub_sign;
 
 //exp 
 /* verilator lint_off WIDTHEXPAND */
 wire [EXP_BITS-1:0] s_exp_sel  = comp_exp_ab ? exp_b : exp_a;
 wire [EXP_BITS-1:0] s_exp_res  = of ? s_exp_sel + of : (pos[SIG_SIZE] ? 0 : s_exp_sel - lamt);
 /* verilator lint_on WIDTHEXPAND */
-
-//qnan
-wire                QNAN_sign_res = s_axis_a_isQNAN ? sign_a : sign_b;
-wire [EXP_BITS-1:0] QNAN_exp_res  = s_axis_a_isQNAN ? exp_a  : exp_b ;
-wire [SIG_BITS-1:0] QNAN_sig_res  = s_axis_a_isQNAN ? sig_a  : sig_b ;
-
-//snan
-wire                SNAN_sign_res = s_axis_a_isSNAN ? sign_a                                         : sign_b                                        ;
-wire [EXP_BITS-1:0] SNAN_exp_res  = s_axis_a_isSNAN ? exp_a                                          : exp_b                                         ;
-wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
-
-//inf 
-wire                DINf_sign_res = sign_a ^ sel_sign_b ? QNAN[31]                  : sign_a;//Inf Inf
-wire [EXP_BITS-1:0] DINf_exp_res  = sign_a ^ sel_sign_b ? {1'b1, QNAN[30:23]}       : exp_a ;
-wire [SIG_BITS-1:0] DINf_sig_res  = sign_a ^ sel_sign_b ? {1'b1, QNAN[22: 0], 8'b0} : sig_a ;
-
-wire                CINf_sign_res = s_axis_a_isINf ? sign_a : sign_b;//Inf C
-wire [EXP_BITS-1:0] CINf_exp_res  = s_axis_a_isINf ? exp_a  : exp_b ;
-wire [SIG_BITS-1:0] CINf_sig_res  = s_axis_a_isINf ? sig_a  : sig_b ;
-
-wire                INf_sign_res = s_axis_a_isINf && s_axis_b_isINf ? DINf_sign_res : CINf_sign_res ;
-wire [EXP_BITS-1:0] INf_exp_res  = s_axis_a_isINf && s_axis_b_isINf ? DINf_exp_res  : CINf_exp_res  ;
-wire [SIG_BITS-1:0] INf_sig_res  = s_axis_a_isINf && s_axis_b_isINf ? DINf_sig_res  : CINf_sig_res  ;
-
-//zero
-wire isUnormalize_a = (exp_a >= 9'b0_0110_1011) && (exp_a <= 9'b0_1000_0001);
-wire [EXP_BITS-1:0] Unormalize_n_a = 9'b0_1000_0001 - exp_a; //-127 - e
-wire [SIG_BITS-1:0] Zero_sig_a = isUnormalize_a ? sig_a >> (Unormalize_n_a + 1) : sig_a; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
-
-wire isUnormalize_b = (exp_b >= 9'b0_0110_1011) && (exp_b <= 9'b0_1000_0001);
-wire [EXP_BITS-1:0] Unormalize_n_b = 9'b0_1000_0001 - exp_b; //-127 - e
-wire [SIG_BITS-1:0] Zero_sig_b = isUnormalize_b ? sig_b >> (Unormalize_n_b + 1) : sig_b; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
-
-wire                Zero_sign_res = s_axis_a_isZero && s_axis_b_isZero ? (sel_sign_b ^ sign_a ? 1'b0 : sign_a) :           //0 (+/-) 0
-                                    s_axis_a_isZero                    ? sign_b                                : sign_a;
-wire [EXP_BITS-1:0] Zero_exp_res  = s_axis_a_isZero ? exp_b      : exp_a ;
-wire [SIG_BITS-1:0] Zero_sig_res  = s_axis_a_isZero ? Zero_sig_b : Zero_sig_a ;
 
 //round
 wire [SIG_BITS -1:0] o_sig ;
@@ -187,6 +150,43 @@ round #(
 	.o_exp   (o_exp       ),
     .o_sign  (o_sign      )
 );
+
+//qnan
+wire                QNAN_sign_res = s_axis_a_isQNAN ? sign_a : sign_b;
+wire [EXP_BITS-1:0] QNAN_exp_res  = s_axis_a_isQNAN ? exp_a  : exp_b ;
+wire [SIG_BITS-1:0] QNAN_sig_res  = s_axis_a_isQNAN ? sig_a  : sig_b ;
+
+//snan
+wire                SNAN_sign_res = s_axis_a_isSNAN ? sign_a                                         : sign_b                                        ;
+wire [EXP_BITS-1:0] SNAN_exp_res  = s_axis_a_isSNAN ? exp_a                                          : exp_b                                         ;
+wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
+
+//inf 
+wire                DINf_sign_res = sign_a ^ sel_sign_b ? QNAN[31]                  : sign_a;//Inf Inf
+wire [EXP_BITS-1:0] DINf_exp_res  = sign_a ^ sel_sign_b ? {1'b1, QNAN[30:23]}       : exp_a ;
+wire [SIG_BITS-1:0] DINf_sig_res  = sign_a ^ sel_sign_b ? {1'b1, QNAN[22: 0], 8'b0} : sig_a ;
+
+wire                CINf_sign_res = s_axis_a_isINf ? sign_a : sel_sign_b;//Inf C
+wire [EXP_BITS-1:0] CINf_exp_res  = s_axis_a_isINf ? exp_a  : exp_b     ;
+wire [SIG_BITS-1:0] CINf_sig_res  = s_axis_a_isINf ? sig_a  : sig_b     ;
+
+wire                INf_sign_res = s_axis_a_isINf && s_axis_b_isINf ? DINf_sign_res : CINf_sign_res ;
+wire [EXP_BITS-1:0] INf_exp_res  = s_axis_a_isINf && s_axis_b_isINf ? DINf_exp_res  : CINf_exp_res  ;
+wire [SIG_BITS-1:0] INf_sig_res  = s_axis_a_isINf && s_axis_b_isINf ? DINf_sig_res  : CINf_sig_res  ;
+
+//zero
+wire isUnormalize_a = (exp_a >= 9'b0_0110_1011) && (exp_a <= 9'b0_1000_0001);
+wire [EXP_BITS-1:0] Unormalize_n_a = 9'b0_1000_0001 - exp_a; //-127 - e
+wire [SIG_BITS-1:0] Zero_sig_a = isUnormalize_a ? sig_a >> (Unormalize_n_a + 1) : sig_a; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
+
+wire isUnormalize_b = (exp_b >= 9'b0_0110_1011) && (exp_b <= 9'b0_1000_0001);
+wire [EXP_BITS-1:0] Unormalize_n_b = 9'b0_1000_0001 - exp_b; //-127 - e
+wire [SIG_BITS-1:0] Zero_sig_b = isUnormalize_b ? sig_b >> (Unormalize_n_b + 1) : sig_b; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
+
+wire                Zero_sign_res = s_axis_a_isZero && s_axis_b_isZero ? (sel_sign_b ^ sign_a ? frm == 3'b010 : sign_a) :           //0 (+/-) 0
+                                    s_axis_a_isZero                    ?  sel_sign_b                                    : sign_a;
+wire [EXP_BITS-1:0] Zero_exp_res  = s_axis_a_isZero ? exp_b      : exp_a ;
+wire [SIG_BITS-1:0] Zero_sig_res  = s_axis_a_isZero ? Zero_sig_b : Zero_sig_a ;
 
 //ASSIGN output 
 assign m_axis_res_sign   = isSNAN ? SNAN_sign_res : 
