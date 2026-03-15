@@ -14,7 +14,7 @@ module testbench;
     reg [FRM_BITS-1:0] frm;
     reg [FDATA_WIDTH-1:0] fina;
     reg [FDATA_WIDTH-1:0] finb;
-    reg [31:0] ina; // 暂时设为32，可根据需求修改
+    //reg [31:0] ina; // 暂时设为32，可根据需求修改
     
     wire o_valid;
     reg o_ready;
@@ -41,7 +41,7 @@ module testbench;
         .frm(frm),
         .fina(fina),
         .finb(finb),
-        .ina(ina),
+        .ina(fina),
         .o_valid(o_valid),
         .o_ready(o_ready),
         .fflags(fflags),
@@ -57,11 +57,11 @@ module testbench;
         // 初始化信号
         rst = 1;
         i_valid = 0;
-        sel = 4'b1011; // 假设 0 是加法，根据你具体的逻辑修改
+        sel = 4'b1101; // 假设 0 是加法，根据你具体的逻辑修改
         frm = 3'b000;
         fina = 0;
         finb = 0;
-        ina = 0;
+        //ina = 0;
         o_ready = 1;
 
         // 打开文件

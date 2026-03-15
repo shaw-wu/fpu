@@ -56,7 +56,7 @@ assign {sigcout, sigres} = shift_sig[DATA_BITS-1-:SIG_BITS] + roundIncre;
 //res
 assign sign = u_i ? 0 : xdata[DATA_BITS-1]                   ;
 /* verilator lint_off WIDTHEXPAND */
-assign exp  = DATA_BITS - 1 - shift_amt + sigcout + BIAS     ;
+assign exp  = xdata == 0 ? 0 : DATA_BITS - 1 - shift_amt + sigcout + BIAS     ;
 /* verilator lint_on WIDTHEXPAND */
 assign sig  = sigcout ? {1'b1, {(SIG_BITS-1){1'b0}}} : sigres;
 assign nx   = guardBit || roundBit || stickyBit              ;

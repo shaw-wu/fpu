@@ -50,12 +50,13 @@ assign sigres = shift_xdata + roundIncre;
 
 //overflow
 wire of = (u_i && overflow_wu) || (!u_i && overflow_w);
-wire overflow_wu = sign ? (sigres != 0)                                                                     : (exp > (RE_DATAWIDTH - 1));
+wire overflow_wu = sign ? exp > {1'b1, {(EXP_BITS-1){1'b0}}}                                                : (exp > (RE_DATAWIDTH - 1));//sign > 0 ? exp > 0 ? exp > 31;
 wire overflow_w  = sign ? (exp > RE_DATAWIDTH) || ((exp == RE_DATAWIDTH) && (sig != (1 << (SIG_BITS - 1)))) : (exp > (RE_DATAWIDTH - 1));
 
 //result
 wire [DATA_BITS-2:0] neg_sigres = ~sigres[DATA_BITS-2:0] + 1;
-wire [DATA_BITS-1:0] comp_res = sign ? {1'b1, neg_sigres         } : {1'b0, sigres[DATA_BITS-2:0]} ;
+wire [DATA_BITS-1:0] comp_res = sigres == 0 ? 0                           :
+                                sign        ? {1'b1, neg_sigres         } : {1'b0, sigres[DATA_BITS-2:0]} ;
 wire [DATA_BITS-1:0] of_wres  = sign ? {1'b1, {DATA_BITS-1{1'b0}}} : {1'b0, {DATA_BITS-1{1'b1}}}   ;
 
 assign wu_res = of ? {DATA_BITS{1'b1}} : sigres  ;
