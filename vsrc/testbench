@@ -1,0 +1,199 @@
+`timescale 1ns / 1ps
+
+module testbench;
+
+    // 参数定义
+    parameter FDATA_BITS = 32;
+    parameter FRM_BITS   = 3;
+    parameter DATA_WIDTH = 32;
+    
+    // 时钟与复位
+    reg clk;
+    reg rst;
+    
+    // 接口信号
+    reg                     i_valid;
+    wire                    i_ready;
+    reg  [3:0]              sel;
+    reg  [FRM_BITS-1:0]     frm;
+    reg  [FDATA_BITS-1:0]   fina;
+    reg  [FDATA_BITS-1:0]   finb;
+    /*verilator lint_off UNUSED*/
+    reg  [DATA_WIDTH-1:0]   ina; // 本例中暂未使用，设为0
+    /*verilator lint_on UNUSED*/
+    wire                    o_valid;
+    reg                     o_ready;
+    wire [4:0]              fflags;
+    wire [FDATA_BITS-1:0]   fresult;
+
+    // 测试向量内部变量
+    reg [FDATA_BITS-1:0]    ref_res;
+    reg [4:0]               ref_flags;
+    integer file_ptr, status;
+    integer op_idx, frm_idx;
+    string  file_name;
+    
+    // 运算类型名称与sel映射
+    //string ops[0:4] = '{"fadd", "fsub", "feq", "flt", "fle"};
+    //reg [3:0] sel_map[0:4] = '{4'd0, 4'd1, 4'd2, 4'd3, 4'd4}; // 请根据您的RTL修改sel的具体定义
+    string ops[0:1] = '{"fadd", "fsub"};
+    string ffrm[0:4] = '{"rte", "rtz", "rdn", "rup", "rmm"};
+    reg [3:0] sel_map[0:1] = '{4'd0, 4'd1}; // 请根据您的RTL修改sel的具体定义
+
+    // 实例化 FPU
+    fpu #(
+        .FDATA_BITS(FDATA_BITS)
+    ) dut (
+        .clk(clk), .rst(rst),
+        .i_valid(i_valid), .i_ready(i_ready),
+        .sel(sel), .frm(frm),
+        .fina(fina), .finb(finb), .ina(32'b0),
+        .o_valid(o_valid), .o_ready(o_ready),
+        .fflags(fflags), .fresult(fresult)
+    );
+
+    // 时钟生成
+    initial clk = 0;
+    always #5 clk = ~clk;
+
+    integer log_file;        // Log文件句柄
+    integer pass_cnt = 0;    // 成功计数
+    integer fail_cnt = 0;    // 失败计数
+
+    // 主测试逻辑
+    //initial begin
+    //    // 初始化
+    //    rst = 1;
+    //    i_valid = 0;
+    //    o_ready = 1;
+    //    fina = 0; finb = 0;
+    //    #20 rst = 0;
+    //    #10;
+
+    //    // 遍历 5 种指令
+    //    for (op_idx = 0; op_idx < 5; op_idx = op_idx + 1) begin
+    //        // 遍历 4 种舍入模式 (0: RNE, 1: RTZ, 2: RDN, 3: RUP)
+    //        for (frm_idx = 0; frm_idx < 4; frm_idx = frm_idx + 1) begin
+    //            
+    //            // 拼接文件名，例如 "fadd-0.tmp" (假设frm以整数形式命名)
+    //            file_name = $sformatf("%s-%s.tmp", ops[op_idx], ffrm[frm_idx]);
+    //            file_ptr = $fopen(file_name, "r");
+    //            
+    //            if (file_ptr == 0) begin
+    //                $display("--- [ERROR]: Cannot open file %s ---", file_name);
+    //            end else begin
+    //                $display("--- [START]: Testing %s with FRM=%s ---", ops[op_idx], ffrm[frm_idx]);
+    //                
+    //                // 读取文件：[fina finb res fflags]
+    //                // 假设文件内容是16进制
+    //                while (!$feof(file_ptr)) begin
+    //                    status = $fscanf(file_ptr, "%h %h %h %h\n", fina, finb, ref_res, ref_flags);
+    //                    
+    //                    if (status == 4) begin
+    //                        // 发起握手请求
+    //                        sel = sel_map[op_idx];
+    //                        /* verilator lint_off WIDTHTRUNC */
+    //                        frm = frm_idx;
+    //                        /* verilator lint_on WIDTHTRUNC */
+    //                        i_valid = 1;
+    //                        
+    //                        // 等待输入被接受
+    //                        wait(i_ready);
+    //                        @(posedge clk);
+    //                        i_valid = 0;
+    //                        
+    //                        // 等待计算结果
+    //                        wait(o_valid);
+    //                        
+    //                        // 检查结果
+    //                        if (fresult !== ref_res || fflags !== ref_flags) begin
+    //                            $display("[FAIL] %s FRM:%d | A:%h B:%h | Out:%h(Ref:%h) Flag:%b(Ref:%b)", 
+    //                                     ops[op_idx], frm_idx, fina, finb, fresult, ref_res, fflags, ref_flags);
+    //                        end
+    //                        @(posedge clk);
+    //                    end
+    //                end
+    //                $fclose(file_ptr);
+    //                $display("--- [DONE]: %s FRM=%0d ---", ops[op_idx], frm_idx);
+    //            end
+    //        end
+    //    end
+
+    //    $display("********** ALL TESTS FINISHED **********");
+    //    $finish;
+    //end
+    initial begin
+        log_file = $fopen("fpu_test_report.tmp", "w");
+        if (log_file == 0) begin
+            $display("Error: Could not create log file.");
+            $finish;
+        end
+        
+        // 打印 Log 抬头
+        $fdisplay(log_file, "====================================================");
+        $fdisplay(log_file, "FPU Test Report - Generated at %t", $time);
+        $fdisplay(log_file, "Format: [Status] Op | FRM | A | B | Result(Ref) | Flags(Ref)");
+        $fdisplay(log_file, "====================================================");
+
+        // --- (此处插入之前的复位逻辑) ---
+        rst = 1; i_valid = 0; o_ready = 1;
+        #20 rst = 0; #10;
+
+        // 嵌套循环测试
+        for (op_idx = 0; op_idx < 5; op_idx = op_idx + 1) begin
+            for (frm_idx = 0; frm_idx < 4; frm_idx = frm_idx + 1) begin
+                
+                file_name = $sformatf("%s-%s.tmp", ops[op_idx], ffrm[frm_idx]);
+                file_ptr = $fopen(file_name, "r");
+                
+                if (file_ptr != 0) begin
+                    $display("--- Testing %s-frm%s ---", ops[op_idx], ffrm[frm_idx]);
+                    
+                    while (!$feof(file_ptr)) begin
+                        status = $fscanf(file_ptr, "%h %h %h %h\n", fina, finb, ref_res, ref_flags);
+                        if (status == 4) begin
+                            // 发送激励
+                            sel = sel_map[op_idx]; 
+                            /* verilator lint_off WIDTHTRUNC */
+                            frm = frm_idx; 
+                            /* verilator lint_on WIDTHTRUNC */
+                            i_valid = 1;
+                            wait(i_ready); @(posedge clk); i_valid = 0;
+                            
+                            // 等待结果
+                            wait(o_valid);
+                            
+                            // 比较并记录到 Log
+                            if (fresult === ref_res && fflags === ref_flags) begin
+                                $fdisplay(log_file, "[PASS] %s | FRM:%0d | A:%h B:%h | Res:%h Flags:%b", 
+                                          ops[op_idx], frm_idx, fina, finb, fresult, fflags);
+                                pass_cnt = pass_cnt + 1;
+                            end else begin
+                                $fdisplay(log_file, "[FAIL] %s | FRM:%0d | A:%h B:%h | Res:%h(%h) Flags:%b(%b)", 
+                                          ops[op_idx], frm_idx, fina, finb, fresult, ref_res, fflags, ref_flags);
+                                fail_cnt = fail_cnt + 1;
+                                // 屏幕上也打印一下错误，方便即时观察
+                                $display("  ! FAIL at %s FRM:%0d", ops[op_idx], frm_idx);
+                            end
+                            @(posedge clk);
+                        end
+                    end
+                    $fclose(file_ptr);
+                end
+            end
+        end
+
+        // 总结报告
+        $fdisplay(log_file, "====================================================");
+        $fdisplay(log_file, "Final Summary:");
+        $fdisplay(log_file, "Total Passed: %0d", pass_cnt);
+        $fdisplay(log_file, "Total Failed: %0d", fail_cnt);
+        $fdisplay(log_file, "Total Tests : %0d", (pass_cnt + fail_cnt));
+        $fdisplay(log_file, "====================================================");
+        
+        $fclose(log_file);
+        $display("Test finished. Please check 'fpu_test_report.log'.");
+        $finish;
+    end
+
+endmodule

@@ -8,13 +8,15 @@ module torecFN #(
 	parameter RECEXP_BITS = 9             ,
 	parameter EXP_OFFSET  = 9'b0_1000_0001
 )(
-	input  [FP_BITS    -1:0] fp    , 
-	output 					 sign  ,
-	output [RECEXP_BITS-1:0] exp   ,
-	output [SIG_BITS   -1:0] sig   ,
-	output 					 isQNAN,
-	output 					 isSNAN,
-	output 					 isINf ,
+	input  [FP_BITS    -1:0] fp          , 
+	output 					 sign        ,
+	output [RECEXP_BITS-1:0] exp         ,
+	output [SIG_BITS   -1:0] sig         ,
+	output 					 isQNAN      ,
+	output 					 isSNAN      ,
+	output 					 isINf       ,
+	output 					 isUnormalize,
+	output 					 isNormalize ,
 	output 					 isZero
 );
 
@@ -32,8 +34,8 @@ assign isQNAN 		= (exp_st == {EXP_BITS{1'b1}} &&  fra_st[FRA_BITS-1]            
 assign isSNAN 		= (exp_st == {EXP_BITS{1'b1}} && !fra_st[FRA_BITS-1] && fra_st != 0);
 assign isINf		= (exp_st == {EXP_BITS{1'b1}} &&  fra_st == 0);
 assign isZero		= (exp_st == 0 && fra_st == 0);
-wire   isUnormalize = (exp_st == 0 && fra_st != 0);
-wire   isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
+assign isUnormalize = (exp_st == 0 && fra_st != 0);
+assign isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
 
 //Leading Zero Detect
 /*verilator lint_off UNUSED*/

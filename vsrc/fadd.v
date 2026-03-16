@@ -152,14 +152,14 @@ round #(
 );
 
 //qnan
-wire                QNAN_sign_res = s_axis_a_isQNAN ? sign_a : sign_b;
-wire [EXP_BITS-1:0] QNAN_exp_res  = s_axis_a_isQNAN ? exp_a  : exp_b ;
-wire [SIG_BITS-1:0] QNAN_sig_res  = s_axis_a_isQNAN ? sig_a  : sig_b ;
-
-//snan
-wire                SNAN_sign_res = s_axis_a_isSNAN ? sign_a                                         : sign_b                                        ;
-wire [EXP_BITS-1:0] SNAN_exp_res  = s_axis_a_isSNAN ? exp_a                                          : exp_b                                         ;
-wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
+//wire                QNAN_sign_res = s_axis_a_isQNAN ? sign_a : sign_b;
+//wire [EXP_BITS-1:0] QNAN_exp_res  = s_axis_a_isQNAN ? exp_a  : exp_b ;
+//wire [SIG_BITS-1:0] QNAN_sig_res  = s_axis_a_isQNAN ? sig_a  : sig_b ;
+//
+////snan
+//wire                SNAN_sign_res = s_axis_a_isSNAN ? sign_a                                         : sign_b                                        ;
+//wire [EXP_BITS-1:0] SNAN_exp_res  = s_axis_a_isSNAN ? exp_a                                          : exp_b                                         ;
+//wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
 
 //inf 
 wire                DINf_sign_res = sign_a ^ sel_sign_b ? QNAN[31]                  : sign_a;//Inf Inf
@@ -189,18 +189,15 @@ wire [EXP_BITS-1:0] Zero_exp_res  = s_axis_a_isZero ? exp_b      : exp_a ;
 wire [SIG_BITS-1:0] Zero_sig_res  = s_axis_a_isZero ? Zero_sig_b : Zero_sig_a ;
 
 //ASSIGN output 
-assign m_axis_res_sign   = isSNAN ? SNAN_sign_res : 
-                           isQNAN ? QNAN_sign_res :
-                           isINf  ? INf_sign_res  :
-                           isZero ? Zero_sign_res : o_sign;
-assign m_axis_res_sig    = isSNAN ? SNAN_sig_res  :
-                           isQNAN ? QNAN_sig_res  :
-                           isINf  ? INf_sig_res   :
-                           isZero ? Zero_sig_res  : o_sig ;
-assign m_axis_res_exp    = isSNAN ? SNAN_exp_res  : 
-                           isQNAN ? QNAN_exp_res  :
-                           isINf  ? INf_exp_res   :
-                           isZero ? Zero_exp_res  : o_exp ;
+assign m_axis_res_sign   = isSNAN || isQNAN ? 0             : 
+                           isINf            ? INf_sign_res  :
+                           isZero           ? Zero_sign_res : o_sign;
+assign m_axis_res_sig    = isSNAN || isQNAN ? {2'b11, {(SIG_BITS-2){1'b0}}} :
+                           isINf            ? INf_sig_res                   :
+                           isZero           ? Zero_sig_res                  : o_sig ;
+assign m_axis_res_exp    = isSNAN || isQNAN ? {EXP_BITS{1'b1}} : 
+                           isINf            ? INf_exp_res      :
+                           isZero           ? Zero_exp_res     : o_exp ;
 
 //assign m_axis_res_isQNAN = isSNAN || isQNAN || (isINf && s_axis_a_isINf && s_axis_b_isINf && (sign_a ^ sel_sign_b));
 //assign m_axis_res_isINf  = isINf ;

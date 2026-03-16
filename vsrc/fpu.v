@@ -1,5 +1,6 @@
 module fpu #(
 	parameter FDATA_BITS  = 32            ,
+	parameter DDATA_BITS  = 64            ,
 	parameter FDATA_SIZE  = 5             ,
 	parameter DATA_WIDTH  = 32            ,
 	parameter FRA_BITS    = 23            ,
@@ -14,7 +15,7 @@ module fpu #(
 
     input                   i_valid,
     output                  i_ready,
-	input  [           3:0] sel    ,
+	input  [           4:0] sel    ,
 	input  [FRM_BITS  -1:0] frm    ,
 	input  [FDATA_BITS-1:0] fina   ,
 	input  [FDATA_BITS-1:0] finb   ,
@@ -41,6 +42,9 @@ wire fcvt_w_s  = sel == 'd10;
 wire fcvt_wu_s = sel == 'd11;
 wire fcvt_s_w  = sel == 'd12;
 wire fcvt_s_wu = sel == 'd13;
+wire fclass_s  = sel == 'd14;
+wire fmin_s    = sel == 'd15;
+wire fmax_s    = sel == 'd16;
 
 wire add_fina_ready;
 wire add_finb_ready;
@@ -106,6 +110,8 @@ wire isQNAN_a;
 wire isSNAN_a;
 wire isINf_a ;
 wire isZero_a;
+wire isUnormalize_a;
+wire isNormalize_a ;
 
 wire sign_b;
 wire [EXP_BITS  :0] exp_b;//recFN exp
@@ -131,6 +137,8 @@ torecFN #(
 	.isQNAN      (isQNAN_a      ),
 	.isSNAN      (isSNAN_a      ),
 	.isINf       (isINf_a       ),
+	.isUnormalize(isUnormalize_a),
+	.isNormalize (isNormalize_a ),
 	.isZero      (isZero_a      )
 );
 
@@ -150,6 +158,10 @@ torecFN #(
 	.isQNAN      (isQNAN_b      ),
 	.isSNAN      (isSNAN_b      ),
 	.isINf       (isINf_b       ),
+    /* verilator lint_off PINCONNECTEMPTY */
+	.isUnormalize(              ),
+	.isNormalize (              ),
+    /* verilator lint_on PINCONNECTEMPTY */
 	.isZero      (isZero_b      )
 );
 
@@ -235,6 +247,19 @@ tostdFN#(
 	.fp         (fpu_result     )
 );
 
+//fclass.s
+wire [FDATA_BITS-1:0] fclass_fresult = isINf_a        &&  sign_a ? 0 :
+                                       isNormalize_a  &&  sign_a ? 1 :
+                                       isUnormalize_a &&  sign_a ? 2 :
+                                       isZero_a       &&  sign_a ? 3 :
+                                       isZero_a       && !sign_a ? 4 :
+                                       isUnormalize_a &&  sign_a ? 5 :
+                                       isNormalize_a  &&  sign_a ? 6 :
+                                       isINf_a        && !sign_a ? 7 :
+                                       isSNAN_a                  ? 8 :
+                                       isQNAN_a                  ? 9 : 0;
+//fclass_fresult == 0;
+
 //feq
 /* verilator lint_off WIDTHEXPAND */
 wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b) ? 0 : (fina == finb) || ((fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0)); 
@@ -258,6 +283,14 @@ wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b
                                     !sign_a                                                    ? fina <= finb : fina >= finb;
 /* verilator lint_on WIDTHEXPAND */
 wire [4:0] fle_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};
+
+//fmin
+wire [FDATA_BITS-1:0] fmin_fresult = flt_fresult[0] ? fina : finb;
+wire [4:0] fmin_fflags = flt_fflags;
+
+//fmax
+wire [FDATA_BITS-1:0] fmax_fresult = flt_fresult[0] ? finb : fina;
+wire [4:0] fmax_fflags = flt_fflags;
 
 wire                st_sign_a = fina[FDATA_BITS-1          ];
 wire [EXP_BITS-1:0] st_exp_a  = fina[FDATA_BITS-2-:EXP_BITS];
@@ -331,14 +364,19 @@ assign fresult = fadd_s || fsub_s                     ? fpu_result     :
                  fcvt_w_s                             ? fcss_fresult   :
                  fcvt_wu_s                            ? fcsu_fresult   :
                  fcvt_s_w                             ? fcxs_fresult   :
-                 fcvt_s_wu                            ? fcxs_fresult   : 0;
+                 fcvt_s_wu                            ? fcxs_fresult   :
+                 fclass_s                             ? fclass_fresult : 
+                 fmin_s                               ? fmin_fresult   :
+                 fmax_s                               ? fmax_fresult   : 0;
 
-assign fflags = fadd_s || fsub_s                          ? add_res_fflags  :
-                fsgnj_s || fsgnjn_s || fsgnjx_s           ? 5'b0            :
-                feq_s                                     ? feq_fflags      :
-                flt_s                                     ? flt_fflags      :
-                fle_s                                     ? fle_fflags      : 
-                fcvt_w_s || fcvt_wu_s                     ? fcvt_w_s_fflags :
-                fcvt_s_w || fcvt_s_wu                     ? fcvt_s_w_fflags : 5'b0;
+assign fflags = fadd_s || fsub_s                            ? add_res_fflags  :
+                fsgnj_s || fsgnjn_s || fsgnjx_s || fclass_s ? 5'b0            :
+                feq_s                                       ? feq_fflags      :
+                flt_s                                       ? flt_fflags      :
+                fle_s                                       ? fle_fflags      : 
+                fcvt_w_s || fcvt_wu_s                       ? fcvt_w_s_fflags :
+                fcvt_s_w || fcvt_s_wu                       ? fcvt_s_w_fflags :
+                fmin_s                                      ? fmin_fflags     :
+                fmax_s                                      ? fmax_fflags     : 5'b0;
 
 endmodule
