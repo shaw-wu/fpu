@@ -1,140 +1,188 @@
-`timescale 1ns / 1ps
+`timescale 1ns/1ps
+
 module testbench;
-    // 参数定义（与你的模块一致）
-    parameter FDATA_WIDTH = 32;
-    parameter FRM_BITS    = 3;
-    parameter CLK_PERIOD  = 10;
 
-    // 信号定义
-    reg clk;
-    reg rst;
-    reg i_valid;
-    wire i_ready;
-    reg [4:0] sel;
-    reg [FRM_BITS-1:0] frm;
-    reg [FDATA_WIDTH-1:0] fina;
-    reg [FDATA_WIDTH-1:0] finb;
-    //reg [31:0] ina; // 暂时设为32，可根据需求修改
-    
-    wire o_valid;
-    reg o_ready;
-    wire [4:0] fflags;
-    wire [FDATA_WIDTH-1:0] fresult;
+parameter FDATA_WIDTH = 32;
+parameter CLK_PERIOD  = 10;
+parameter MAX_VEC     = 1000000;
 
-    // 测试向量与日志文件句柄
-    integer file_in, file_log;
-    integer status;
-    reg [FDATA_WIDTH-1:0] exp_res;
-    reg [4:0] exp_fflags;
-    integer vector_cnt = 0;
-    integer error_cnt = 0;
+reg clk;
+reg rst;
 
-    // 实例化被测设计 (DUT)
-    fpu #(
-        .FDATA_BITS(FDATA_WIDTH)
-    ) dut (
-        .clk(clk),
-        .rst(rst),
-        .i_valid(i_valid),
-        .i_ready(i_ready),
-        .sel(sel),
-        .frm(frm),
-        .fina(fina),
-        .finb(finb),
-        .ina(fina),
-        .o_valid(o_valid),
-        .o_ready(o_ready),
-        .fflags(fflags),
-        .fresult(fresult)
-    );
+reg i_valid;
+wire i_ready;
 
-    // 时钟生成
-    initial clk = 0;
-    always #(CLK_PERIOD/2) clk = ~clk;
+reg [4:0] sel;
+reg [2:0] frm;
 
-    // 主测试逻辑
-    initial begin
-        // 初始化信号
-        rst = 1;
-        i_valid = 0;
-        sel = 5'b00000; // 假设 0 是加法，根据你具体的逻辑修改
-        frm = 3'b000;
-        fina = 0;
-        finb = 0;
-        //ina = 0;
-        o_ready = 1;
+reg [FDATA_WIDTH-1:0] fina;
+reg [FDATA_WIDTH-1:0] finb;
 
-        // 打开文件
-        file_in = $fopen("fadd-rte.tmp", "r");
-        file_log = $fopen("log.tmp", "w");
+wire o_valid;
+reg  o_ready;
 
-        if (file_in == 0 || file_log == 0) begin
-            $display("错误：无法打开测试文件或日志文件！");
-            $finish;
-        end
+wire [4:0] fflags;
+wire [FDATA_WIDTH-1:0] fresult;
 
-        $fdisplay(file_log, "--- FPU 自动化测试开始 ---");
-        $display("开始读取测试向量...");
+// ======== queue 保存期望结果 ========
+reg [FDATA_WIDTH-1:0] exp_res_q   [0:MAX_VEC-1];
+reg [4:0]             exp_flag_q  [0:MAX_VEC-1];
 
-        // 复位释放
-        #(CLK_PERIOD * 5);
-        rst = 0;
-        #(CLK_PERIOD * 2);
+integer head = 0;
+integer tail = 0;
 
-        // 循环读取测试向量
-        // 格式: [fina finb res fflags]
-        while (!$feof(file_in)) begin
-            status = $fscanf(file_in, "%h %h %h %h\n", fina, finb, exp_res, exp_fflags);
-            //status = $fscanf(file_in, "%h %h %h\n", fina, exp_res, exp_fflags);
-            
-            if (status == 4) begin
-                vector_cnt = vector_cnt + 1;
-                
-                // 发起握手请求
-                i_valid = 1;
-                wait(i_ready); // 等待 DUT 准备好
-                @(posedge clk);
-                #1; // 模拟些许延迟
-                i_valid = 0;
+reg [31:0] gap;
+// ======== 统计 ========
+integer vector_cnt = 0;
+integer error_cnt  = 0;
+integer recv_cnt   = 0;
 
-                // 等待结果输出
-                wait(o_valid);
-                @(posedge clk);
-                
-                // 比对结果
-                if (fresult !== exp_res || fflags !== exp_fflags) begin
-                    error_cnt = error_cnt + 1;
-                    $fdisplay(file_log, "[Error] Vector %0d: A=%h, B=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
-                              vector_cnt, fina, finb, fresult, fflags, exp_res, exp_fflags);
-                end else begin
-                    $fdisplay(file_log, "[Pass] Vector %0d", vector_cnt);
-                end
-                
-                //if (fresult !== exp_res || fflags !== exp_fflags) begin
-                //    error_cnt = error_cnt + 1;
-                //    $fdisplay(file_log, "[Error] Vector %0d: A=%h | Got: Res=%h, Flg=%b | Exp: Res=%h, Flg=%b", 
-                //              vector_cnt, fina, fresult, fflags, exp_res, exp_fflags);
-                //end else begin
-                //    $fdisplay(file_log, "[Pass] Vector %0d", vector_cnt);
-                //end
+// ======== 文件 ========
+integer file_in;
+integer file_log;
+integer status;
+
+reg [FDATA_WIDTH-1:0] exp_res;
+reg [4:0]             exp_flag;
 
 
-                if (vector_cnt % 100 == 0) begin
-                    if(vector_cnt > 2500) break;
-                    $display("已处理 %0d 条测试向量...", vector_cnt);
-                end
-            end
-        end
+// ======== DUT ========
+fpu #(
+    .FDATA_BITS(FDATA_WIDTH)
+) dut (
+    .clk(clk),
+    .rst(rst),
+    .i_valid(i_valid),
+    .i_ready(i_ready),
+    .sel(sel),
+    .frm(frm),
+    .fina(fina),
+    .finb(finb),
+    .ina(fina),
+    .o_valid(o_valid),
+    .o_ready(o_ready),
+    .fflags(fflags),
+    .fresult(fresult)
+);
 
-        // 结束报告
-        $display("---------------------------------------");
-        $display("测试完成！总数: %0d, 错误数: %0d", vector_cnt, error_cnt);
-        $display("详情请查看 simulation.log");
-        $fdisplay(file_log, "--- 测试结束 | 总计: %0d, 错误: %0d ---", vector_cnt, error_cnt);
-        
-        $fclose(file_in);
-        $fclose(file_log);
+
+// ======== 时钟 ========
+initial clk = 0;
+always #(CLK_PERIOD/2) clk = ~clk;
+always @(posedge clk)  gap <= (gap + 1) % 8;
+
+
+// ======== 输入线程（发射流水）=======
+initial begin
+
+    rst     = 1;
+    i_valid = 0;
+    o_ready = 1;
+
+   // sel = 5'd0;       // FADD
+    frm = 3'd0;       // RNE
+
+    #(CLK_PERIOD*10);
+    rst = 0;
+
+    file_in  = $fopen("fadd-rte.tmp","r");
+    file_log = $fopen("log.tmp","w");
+
+    if(file_in==0 || file_log==0) begin
+        $display("ERROR: file open failed");
         $finish;
     end
+
+    $display("===== FPU PIPELINE TEST START =====");
+    $fdisplay(file_log,"===== FPU TEST START =====");
+
+    while(!$feof(file_in)) begin
+
+        @(posedge clk);
+        if(i_ready) begin
+
+            #1
+            status = $fscanf(file_in,"%h %h %h %h %h\n",
+                             fina, finb, exp_res, exp_flag, sel);
+
+            if(status==5) begin
+
+                // push queue
+                exp_res_q[tail]  = exp_res;
+                exp_flag_q[tail] = exp_flag;
+                tail = tail + 1;
+                vector_cnt = vector_cnt + 1;
+
+                i_valid = 1;
+
+
+                if(vector_cnt % 1000 == 0)
+                    $display("[SEND] %0d vectors",vector_cnt);
+
+            end
+        end
+    end
+
+    $display("All vectors issued = %0d",vector_cnt);
+
+end
+// ======== 输出线程（流水接收）=======
+initial begin
+
+    forever begin
+        @(posedge clk);
+
+        if(o_valid) begin
+
+            recv_cnt = recv_cnt + 1;
+
+            if(fresult !== exp_res_q[head] ||
+               fflags  !== exp_flag_q[head]) begin
+
+                error_cnt = error_cnt + 1;
+
+                //$display("[ERR] id=%0d  A=%h B=%h  got=%h flag=%b exp=%h flag=%b",
+                //          head, fina, finb,
+                //          fresult, fflags,
+                //          exp_res_q[head], exp_flag_q[head]);
+
+                $fdisplay(file_log,
+                          "[ERR] id=%0d got=%h %b exp=%h %b",
+                          head,
+                          fresult, fflags,
+                          exp_res_q[head], exp_flag_q[head]);
+
+            end
+
+            head = head + 1;
+
+            if(recv_cnt % 100 == 0)
+                $display("[RECV] %0d results  error=%0d",
+                         recv_cnt,error_cnt);
+
+            // 自动结束
+            if($feof(file_in) && recv_cnt == vector_cnt && vector_cnt!=0) begin
+
+                $display("==================================");
+                $display("TEST FINISH");
+                $display("Total  = %0d",vector_cnt);
+                $display("Error  = %0d",error_cnt);
+                $display("==================================");
+
+                $fdisplay(file_log,
+                          "FINISH total=%0d error=%0d",
+                          vector_cnt,error_cnt);
+
+                $fclose(file_in);
+                $fclose(file_log);
+
+                #(CLK_PERIOD*20);
+                $finish;
+            end
+
+        end
+    end
+
+end
 
 endmodule
