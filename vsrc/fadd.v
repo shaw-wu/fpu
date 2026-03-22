@@ -169,15 +169,17 @@ wire [EXP_BITS-1:0] exp_diff     = comp_exp_ab ? s1_exp_b - s1_exp_a : s1_exp_a 
 /* verilator lint_off WIDTHTRUNC*/
 wire [SIG_SIZE    :0] sig_amt = (exp_diff >= 32) ? 32 : exp_diff;
 /* verilator lint_on WIDTHTRUNC*/
-wire [2*SIG_BITS-1:0] full_sigShift_a =  comp_exp_ab ? {s1_sig_a, {SIG_BITS{1'b0}}} >> sig_amt : {s1_sig_a, {SIG_BITS{1'b0}}};
-wire [2*SIG_BITS-1:0] full_sigShift_b = !comp_exp_ab ? {s1_sig_b, {SIG_BITS{1'b0}}} >> sig_amt : {s1_sig_b, {SIG_BITS{1'b0}}};
-wire sticky_a = |full_sigShift_a[SIG_BITS-1:0];
-wire sticky_b = |full_sigShift_b[SIG_BITS-1:0];
+
+wire [SIG_BITS-1:0] mask = ~({SIG_BITS{1'b1}} << sig_amt);
+wire [SIG_BITS-1:0] full_sigShift_a =  comp_exp_ab ? s1_sig_a >> sig_amt : s1_sig_a;
+wire [SIG_BITS-1:0] full_sigShift_b = !comp_exp_ab ? s1_sig_b >> sig_amt : s1_sig_b;
+wire sticky_a = |(mask & s1_sig_a);
+wire sticky_b = |(mask & s1_sig_b);
 
 wire sticky_shift = comp_exp_ab ? sticky_a : sticky_b; 
 
-wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a[SIG_BITS+:SIG_BITS];
-wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b[SIG_BITS+:SIG_BITS];
+wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a;
+wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b;
 
 //sig origin add/sub(32 bits)
 

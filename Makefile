@@ -38,6 +38,7 @@ endif
 #源文件
 CSRC = $(wildcard $(CSRC_DIR)/*.c) $(wildcard $(CSRC_DIR)/*.cpp)
 VSRC = $(wildcard $(VSRC_DIR)/*.v)
+VSRC += $(wildcard $(VSRC_DIR)/mul/*.v)
 
 
 ######################################################################
