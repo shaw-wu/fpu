@@ -10,7 +10,9 @@ module ldz #(
     reg [DATA_SIZE-1:0] found_index;
 
     always @(*) begin
+        /* verilator lint_off WIDTHTRUNC */
         out = DATA_BITS - 1; // default value（如果没有找到1）
+        /* verilator lint_on WIDTHTRUNC */
         found_index = 0;
         // 从高位向低位扫描
         // 这里的逻辑是：找到最高位的 1，计算它左边有多少个 0

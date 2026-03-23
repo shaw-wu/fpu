@@ -28,21 +28,26 @@ module fpu #(
 
 assign i_ready = s0_ready;
 //localparam QNAN_S = 32'h7FC00000;
-reg [5:0] cntTrans0; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
+reg [5:0] cntTrans0_add; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
+reg [5:0] cntTrans0_mul; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 reg [5:0] cntTrans1; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 //reg [5:0] cntTrans2; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
-wire isTrans0 = pre_fadd_s || pre_fsub_s;
+wire isTrans0 = isTrans0_add || isTrans0_mul;
+wire isTrans0_add = pre_fadd_s || pre_fsub_s;
+wire isTrans0_mul = pre_fmul_s;
 wire isTrans1 = pre_fcvt_wu_s || pre_fcvt_w_s;
 wire isTrans2 = !isTrans0 && !isTrans1;
 
-wire haveTrans0 = cntTrans0 != 0;
+wire haveTrans0 = haveTrans0_add || haveTrans0_mul;
+wire haveTrans0_add = cntTrans0_add != 0;
+wire haveTrans0_mul = cntTrans0_mul != 0;
 wire haveTrans1 = cntTrans1 != 0;
 //wire haveTrans2 = cntTrans2 != 0;
 
 wire pre_fadd_s = sel == 'd0 ;
 wire pre_fsub_s = sel == 'd1 ;
-//wire prefmul_s = sel == 'd2 ;
-//wire prefdiv_s = sel == 'd3 ;
+wire pre_fmul_s = sel == 'd2 ;
+//wire pre_fdiv_s = sel == 'd3 ;
 wire pre_fcvt_w_s  = sel == 'd10;
 wire pre_fcvt_wu_s = sel == 'd11;
 
@@ -56,43 +61,57 @@ reg [           4:0] s0_sel;
 wire s0_valid;
 wire s0_ready;
 
-localparam S0_IDLE  = 4'b0001;
-localparam S0_WAIT2 = 4'b0010;
-localparam S0_WAIT1 = 4'b0100;
-localparam S0_WAIT  = 4'b1000;
+localparam S0_IDLE     = 5'b00001;
+localparam S0_WAIT2    = 5'b00010;
+localparam S0_WAIT1    = 5'b00100;
+localparam S0_WAIT_ADD = 5'b01000;
+localparam S0_WAIT_MUL = 5'b10000;
 
-reg [3:0] s0_current_state, s0_next_state;
+reg [4:0] s0_current_state, s0_next_state;
 
 always @(*) begin
 	case(s0_current_state)
 		S0_IDLE : begin
-			if     (i_valid && isTrans2 && !haveTrans0 && !haveTrans1) s0_next_state = S0_WAIT2;
-			else if(i_valid && isTrans2                              ) s0_next_state = S0_IDLE ;
-			else if(i_valid && isTrans1                              ) s0_next_state = S0_WAIT1;
-			else if(i_valid                                          ) s0_next_state = S0_WAIT ;
-			else		                                               s0_next_state = S0_IDLE ;
+			if     (i_valid && isTrans2 && !haveTrans0 && !haveTrans1) s0_next_state = S0_WAIT2   ;
+			else if(i_valid && isTrans2                              ) s0_next_state = S0_IDLE    ;
+			else if(i_valid && isTrans1                              ) s0_next_state = S0_WAIT1   ;
+			else if(i_valid && isTrans0_add && !haveTrans0_mul       ) s0_next_state = S0_WAIT_ADD;
+			else if(i_valid && isTrans0_mul && !haveTrans0_add       ) s0_next_state = S0_WAIT_MUL;
+			else		                                               s0_next_state = S0_IDLE    ;
 		end
 		S0_WAIT2  : begin//don't need to wait trans1 or trans0
-            if     (o_ready && isTrans2 &&  i_valid) s0_next_state = S0_WAIT2;
-            else if(o_ready && isTrans1 &&  i_valid) s0_next_state = S0_WAIT1;
-            else if(o_ready && isTrans0 &&  i_valid) s0_next_state = S0_WAIT ;
-            else if(o_ready             && !i_valid) s0_next_state = S0_IDLE ;
-			else	                                 s0_next_state = S0_WAIT2;
+            if     (o_ready && isTrans2     &&  i_valid) s0_next_state = S0_WAIT2   ;
+            else if(o_ready && isTrans1     &&  i_valid) s0_next_state = S0_WAIT1   ;
+            else if(o_ready && isTrans0_add &&  i_valid) s0_next_state = S0_WAIT_ADD;
+            else if(o_ready && isTrans0_mul &&  i_valid) s0_next_state = S0_WAIT_MUL;
+            else if(o_ready                 && !i_valid) s0_next_state = S0_IDLE    ;
+			else	                                     s0_next_state = S0_WAIT2   ;
 		end
 		S0_WAIT1 : begin
-            if     (s1_ready && isTrans2 &&  i_valid) s0_next_state = S0_IDLE ;
-            else if(s1_ready && isTrans1 &&  i_valid) s0_next_state = S0_WAIT1;
-			else if(s1_ready             &&  i_valid) s0_next_state = S0_WAIT ;
-			else if(s1_ready             && !i_valid) s0_next_state = S0_IDLE ;
-			else	                                  s0_next_state = S0_WAIT1;
+            if     (s1_ready && isTrans2     &&  i_valid) s0_next_state = S0_IDLE    ;
+            else if(s1_ready && isTrans1     &&  i_valid) s0_next_state = S0_WAIT1   ;
+            else if(s1_ready && isTrans0_add &&  i_valid) s0_next_state = S0_WAIT_ADD;
+            else if(s1_ready && isTrans0_mul &&  i_valid) s0_next_state = S0_WAIT_MUL;
+			else if(s1_ready                 && !i_valid) s0_next_state = S0_IDLE    ;
+			else	                                      s0_next_state = S0_WAIT1   ;
 		end
-		S0_WAIT : begin
-            if     (!s1_ready                         ) s0_next_state = S0_WAIT ;
-            else if(add_iready && isTrans2 &&  i_valid) s0_next_state = S0_IDLE ;
-            else if(add_iready && isTrans1 &&  i_valid) s0_next_state = S0_WAIT1;
-			else if(add_iready             &&  i_valid) s0_next_state = S0_WAIT ;
-			else if(add_iready             && !i_valid) s0_next_state = S0_IDLE ;
-			else	                                    s0_next_state = S0_WAIT ;
+		S0_WAIT_ADD : begin
+            if     (!s1_ready                             ) s0_next_state = S0_WAIT_ADD;
+            else if(add_iready && isTrans2     &&  i_valid) s0_next_state = S0_IDLE    ;
+            else if(add_iready && isTrans1     &&  i_valid) s0_next_state = S0_WAIT1   ;
+            else if(add_iready && isTrans0_mul &&  i_valid) s0_next_state = S0_IDLE    ;
+            else if(add_iready && isTrans0_add &&  i_valid) s0_next_state = S0_WAIT_ADD;
+			else if(add_iready                 && !i_valid) s0_next_state = S0_IDLE    ;
+			else	                                        s0_next_state = S0_WAIT_ADD;
+		end
+		S0_WAIT_MUL : begin
+            if     (!s1_ready                             ) s0_next_state = S0_WAIT_MUL;
+            else if(mul_iready && isTrans2     &&  i_valid) s0_next_state = S0_IDLE    ;
+            else if(mul_iready && isTrans1     &&  i_valid) s0_next_state = S0_WAIT1   ;
+            else if(mul_iready && isTrans0_add &&  i_valid) s0_next_state = S0_IDLE    ;
+            else if(mul_iready && isTrans0_mul &&  i_valid) s0_next_state = S0_WAIT_MUL;
+			else if(mul_iready                 && !i_valid) s0_next_state = S0_IDLE    ;
+			else	                                        s0_next_state = S0_WAIT_MUL;
 		end
         default : s0_next_state = S0_IDLE;
 	endcase
@@ -103,8 +122,8 @@ always @(posedge clk or posedge rst) begin
         s0_frm <= 0;
         s0_sel <= 0;
 
-        s0_fina      <= 0;
-        s0_finb      <= 0;
+        s0_fina <= 0;
+        s0_finb <= 0;
 
 		s0_current_state <= S0_IDLE;
 	end else begin
@@ -113,39 +132,48 @@ always @(posedge clk or posedge rst) begin
             s0_frm <= frm;
             s0_sel <= sel;
 
-            s0_fina      <= fina;
-            s0_finb      <= finb;
+            s0_fina <= fina;
+            s0_finb <= finb;
         end 
         if((s0_current_state == S0_WAIT1) && s1_ready) begin
 
-            if     (s4_valid && o_ready               ) cntTrans0 <= cntTrans0 - 1;
-            if     (s1_valid && o_ready && !haveTrans0) cntTrans1 <= cntTrans1    ;
-            else                                        cntTrans1 <= cntTrans1 + 1;
+            if     (s4_valid && o_ready && haveTrans0_add) cntTrans0_add <= cntTrans0_add - 1;
+            else if(s4_valid && o_ready && haveTrans0_mul) cntTrans0_mul <= cntTrans0_mul - 1;
+            if     (s1_valid && o_ready && !haveTrans0   ) cntTrans1 <= cntTrans1    ;
+            else                                           cntTrans1 <= cntTrans1 + 1;
 
-        end else if((s0_current_state == S0_WAIT) && s1_ready && add_iready) begin
+        end else if((s0_current_state == S0_WAIT_ADD) && s1_ready && add_iready) begin
             
-            if     (s1_valid && o_ready && !haveTrans0 && !isTrans1) cntTrans1 <= cntTrans1 - 1;
-            if     (s4_valid && o_ready                            ) cntTrans0 <= cntTrans0    ;
-            else                                                     cntTrans0 <= cntTrans0 + 1;
+            //if     (s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
+            if(s4_valid && o_ready) cntTrans0_add <= cntTrans0_add    ;
+            else                    cntTrans0_add <= cntTrans0_add + 1;
+
+        end else if((s0_current_state == S0_WAIT_MUL) && s1_ready && mul_iready) begin
+            
+            if(s4_valid && o_ready) cntTrans0_mul <= cntTrans0_mul    ;
+            else                    cntTrans0_mul <= cntTrans0_mul + 1;
 
         end else begin
             
-            if(s4_valid && o_ready) cntTrans0 <= cntTrans0 - 1;
+            if     (s4_valid && o_ready && haveTrans0_add) cntTrans0_add <= cntTrans0_add - 1;
+            else if(s4_valid && o_ready && haveTrans0_mul) cntTrans0_mul <= cntTrans0_mul - 1;
             if(s1_valid && o_ready && !haveTrans0 && !isTrans1) cntTrans1 <= cntTrans1 - 1;
 
         end
 	end
 end
 
-assign s0_valid = ((s0_current_state == S0_WAIT) && s1_ready) || (s0_current_state == S0_WAIT2) || (s0_current_state == S0_WAIT1); 
-assign s0_ready = ( (s0_current_state == S0_IDLE ) && ((isTrans2 && !haveTrans0 && !haveTrans1) || !isTrans2) ) ||
-                  ( (s0_current_state == S0_WAIT2) && o_ready                                                 ) || 
-                  ( (s0_current_state == S0_WAIT1) && s1_ready   && !isTrans2                                 ) ||
-                  ( (s0_current_state == S0_WAIT ) && s1_ready   && add_iready && !isTrans2                   );
+assign s0_valid = ((s0_current_state == S0_WAIT_MUL) && s1_ready) || ((s0_current_state == S0_WAIT_ADD) && s1_ready) ||
+                   (s0_current_state == S0_WAIT2) || (s0_current_state == S0_WAIT1); 
+assign s0_ready = ( (s0_current_state == S0_IDLE    ) && ((isTrans2 && !haveTrans0 && !haveTrans1) || (isTrans0_add && !haveTrans0_mul) || (isTrans0_mul && !haveTrans0_add)) ) ||
+                  ( (s0_current_state == S0_WAIT2   ) && o_ready                                                 ) || 
+                  ( (s0_current_state == S0_WAIT1   ) && s1_ready   && !isTrans2                                 ) ||
+                  ( (s0_current_state == S0_WAIT_ADD) && s1_ready   && add_iready && !isTrans2 && !isTrans0_mul  ) ||
+                  ( (s0_current_state == S0_WAIT_MUL) && s1_ready   && mul_iready && !isTrans2 && !isTrans0_add  ); 
 
 wire fadd_s = s0_sel == 'd0 ;
 wire fsub_s = s0_sel == 'd1 ;
-//wire fmul_s = s0_sel == 'd2 ;
+wire fmul_s = s0_sel == 'd2 ;
 //wire fdiv_s = s0_sel == 'd3 ;
 wire feq_s  = s0_sel == 'd4 ;
 wire flt_s  = s0_sel == 'd5 ;
@@ -225,9 +253,7 @@ torecFN #(
 );
 
 /*======== stage 1~3 ========*/
-//wire s3_busy = add_busy;
 //fadd / sign
-//wire add_busy;
 wire add_sub_sel = fsub_s;
 
 wire add_ivalid = s0_valid && (fadd_s || fsub_s);
@@ -293,6 +319,66 @@ fadd #(
 	.m_axis_res_fflags      (add_res_fflags)
 );
 
+//fmul 
+wire mul_ivalid = s0_valid && fmul_s;
+wire mul_iready = mul_iready_a && mul_iready_b;
+wire mul_iready_a;
+wire mul_iready_b;
+
+wire mul_ovalid;
+wire mul_oready = s4_ready;
+
+wire               mul_res_sign  ;
+wire [FRA_BITS :0] mul_res_sig   ;
+wire [EXP_BITS :0] mul_res_exp   ;
+//wire               mul_res_isNAN ;
+//wire               mul_res_isINf ;
+wire [        4:0] mul_res_fflags;
+
+fmul #(
+    .DATA_WIDTH(FDATA_BITS),
+    .FRM_BITS(FRM_BITS  ),
+    .FLA_BITS(5         ),
+    .SIG_BITS(FRA_BITS+1),
+//    .SIG_SIZE(SIG_SIZE  ),
+    .FRA_BITS(FRA_BITS+1),
+    .EXP_BITS(EXP_BITS+1)
+) FMUL (
+	.aclk			        (clk		   ),
+    .areset                 (rst           ),
+
+    .s_axis_frm             (s0_frm        ),
+//fina
+	.s_axis_a_tvalid        (mul_ivalid    ),
+	.s_axis_a_tready        (mul_iready_a  ),
+
+	.s_axis_a_sign          (sign_a        ),
+	.s_axis_a_sig           (sig_a[SIG_BITS-1-:FRA_BITS+1]),
+	.s_axis_a_exp           (exp_a         ),
+	.s_axis_a_isQNAN        (isQNAN_a      ),
+	.s_axis_a_isSNAN        (isSNAN_a      ),
+	.s_axis_a_isINf         (isINf_a       ),
+	.s_axis_a_isZero        (isZero_a      ),
+//finb
+	.s_axis_b_tvalid        (mul_ivalid    ),
+	.s_axis_b_tready        (mul_iready_b  ),
+
+	.s_axis_b_sign          (sign_b        ),
+	.s_axis_b_sig           (sig_b[SIG_BITS-1-:FRA_BITS+1]),
+	.s_axis_b_exp           (exp_b         ),
+	.s_axis_b_isQNAN        (isQNAN_b      ),
+	.s_axis_b_isSNAN        (isSNAN_b      ),
+	.s_axis_b_isINf         (isINf_b       ),
+	.s_axis_b_isZero        (isZero_b      ),
+//fresult
+	.m_axis_res_tvalid      (mul_ovalid    ),
+	.m_axis_res_tready      (mul_oready    ),
+
+	.m_axis_res_sign        (mul_res_sign  ),
+	.m_axis_res_sig         (mul_res_sig   ),
+	.m_axis_res_exp         (mul_res_exp   ),
+	.m_axis_res_fflags      (mul_res_fflags)
+);
 /*========  stage 1 ========*/
 reg [2:0] s1_frm;
 
@@ -429,6 +515,12 @@ reg [SIG_BITS-1:0] s4_add_res_sig         ;
 reg [EXP_BITS  :0] s4_add_res_exp         ;
 reg [         4:0] s4_add_res_fflags      ;
 
+reg                is_mul                 ;
+reg                s4_mul_res_sign        ;
+reg [SIG_BITS-1:0] s4_mul_res_sig         ;
+reg [EXP_BITS  :0] s4_mul_res_exp         ;
+reg [         4:0] s4_mul_res_fflags      ;
+
 wire s4_valid;
 wire s4_ready;
 
@@ -440,11 +532,11 @@ reg [1:0] s4_current_state, s4_next_state;
 always @(*) begin
 	case(s4_current_state)
 		S4_IDLE : begin
-			if  (add_ovalid) s4_next_state = S4_WAIT;
+			if  (add_ovalid||mul_ovalid) s4_next_state = S4_WAIT;
 			else			 s4_next_state = S4_IDLE;
 		end
 		S4_WAIT : begin
-			if     (o_ready && add_ovalid) s4_next_state = S4_WAIT;
+			if     (o_ready && (add_ovalid || mul_ovalid)) s4_next_state = S4_WAIT;
 			else if(o_ready              ) s4_next_state = S4_IDLE;
 			else	                       s4_next_state = S4_WAIT;
 		end
@@ -463,10 +555,19 @@ always @(posedge clk or posedge rst) begin
 		s4_current_state <= s4_next_state;
         if(add_ovalid && s4_ready) begin
             is_add_sub        <= 1;
+            is_mul            <= 0;
             s4_add_res_sign   <= add_res_sign  ;
             s4_add_res_sig    <= add_res_sig   ;
             s4_add_res_exp    <= add_res_exp   ;
             s4_add_res_fflags <= add_res_fflags;
+        end
+        if(mul_ovalid && s4_ready) begin
+            is_add_sub        <= 0;
+            is_mul            <= 1;
+            s4_mul_res_sign   <= mul_res_sign  ;
+            s4_mul_res_sig    <= {mul_res_sig, {(SIG_BITS-FRA_BITS-1){1'b0}}};
+            s4_mul_res_exp    <= mul_res_exp   ;
+            s4_mul_res_fflags <= mul_res_fflags;
         end
 	end
 end
@@ -475,9 +576,12 @@ assign s4_valid = (s4_current_state == S4_WAIT);
 assign s4_ready = (s4_current_state == S4_IDLE) || (s4_valid && o_ready); 
 
 //fadd/fsub result
-wire                  sign_res  = s4_add_res_sign ;
-wire [EXP_BITS    :0] exp_res   = s4_add_res_exp  ;
-wire [SIG_BITS  -1:0] sig_res   = s4_add_res_sig  ;
+wire                  sign_res  = is_add_sub ? s4_add_res_sign :
+                                  is_mul     ? s4_mul_res_sign : 0;
+wire [EXP_BITS    :0] exp_res   = is_add_sub ? s4_add_res_exp  :
+                                  is_mul     ? s4_mul_res_exp  : 0;
+wire [SIG_BITS  -1:0] sig_res   = is_add_sub ? s4_add_res_sig  :
+                                  is_mul     ? s4_mul_res_sig  : 0;
 //wire                  isNAN_res = add_res_isNAN;
 //wire                  isINf_res = add_res_isINf;
 
@@ -583,27 +687,29 @@ wire [FDATA_BITS-1:0] fsgnjx_fresult = {st_sign_a ^ st_sign_b, st_exp_a, st_fra_
 
 wire fadd_s_valid = s4_valid && is_add_sub;
 wire fsub_s_valid = s4_valid && is_add_sub;
+wire fmul_s_valid = s4_valid && is_mul;
 wire fcvt_wu_s_valid = s1_valid && s1_fcvt_wu_s;
 wire fcvt_w_s_valid  = s1_valid && s1_fcvt_w_s ;
 //wire net_op = s0_ready;
 
 //fresult
-assign fresult = fadd_s_valid || fsub_s_valid         ? fpu_result     :
-                 feq_s                                ? feq_fresult    :
-                 flt_s                                ? flt_fresult    :
-                 fle_s                                ? fle_fresult    : 
-                 fsgnj_s                              ? fsgnj_fresult  : 
-                 fsgnjx_s                             ? fsgnjx_fresult : 
-                 fsgnjn_s                             ? fsgnjn_fresult : 
-                 fcvt_w_s_valid                       ? fcss_fresult   :
-                 fcvt_wu_s_valid                      ? fcsu_fresult   :
-                 fcvt_s_w                             ? fcxs_fresult   :
-                 fcvt_s_wu                            ? fcxs_fresult   :
-                 fclass_s                             ? fclass_fresult : 
-                 fmin_s                               ? fmin_fresult   :
-                 fmax_s                               ? fmax_fresult   : 0;
+assign fresult = fadd_s_valid || fsub_s_valid || fmul_s_valid ? fpu_result     :
+                 feq_s                                        ? feq_fresult    :
+                 flt_s                                        ? flt_fresult    :
+                 fle_s                                        ? fle_fresult    : 
+                 fsgnj_s                                      ? fsgnj_fresult  : 
+                 fsgnjx_s                                     ? fsgnjx_fresult : 
+                 fsgnjn_s                                     ? fsgnjn_fresult : 
+                 fcvt_w_s_valid                               ? fcss_fresult   :
+                 fcvt_wu_s_valid                              ? fcsu_fresult   :
+                 fcvt_s_w                                     ? fcxs_fresult   :
+                 fcvt_s_wu                                    ? fcxs_fresult   :
+                 fclass_s                                     ? fclass_fresult : 
+                 fmin_s                                       ? fmin_fresult   :
+                 fmax_s                                       ? fmax_fresult   : 0;
 
 assign fflags = fadd_s_valid || fsub_s_valid                ? s4_add_res_fflags :
+                fmul_s_valid                                ? s4_mul_res_fflags :
                 fsgnj_s || fsgnjn_s || fsgnjx_s || fclass_s ? 5'b0              :
                 feq_s                                       ? feq_fflags        :
                 flt_s                                       ? flt_fflags        :

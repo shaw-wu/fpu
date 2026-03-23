@@ -1,5 +1,5 @@
 module mul #(
-    parameter DATA_WIDTH = 32
+    parameter DATA_WIDTH = 24 
 )(
 //    input                     clk   ,
 //    input                     rst   ,
@@ -9,20 +9,22 @@ module mul #(
 );
 
 localparam PP_NUM = (DATA_WIDTH+1)/2;
-localparam L0_NUM = PP_NUM + 1;
+//localparam L0_NUM = PP_NUM + 1;
+localparam L0_NUM = PP_NUM;
 localparam L1_NUM = L0_NUM / 3 * 2 + L0_NUM % 3;
 localparam L2_NUM = L1_NUM / 3 * 2 + L1_NUM % 3;
 localparam L3_NUM = L2_NUM / 3 * 2 + L2_NUM % 3;
 localparam L4_NUM = L3_NUM / 3 * 2 + L3_NUM % 3;
 localparam L5_NUM = L4_NUM / 3 * 2 + L4_NUM % 3;
-localparam L6_NUM = L5_NUM / 3 * 2 + L5_NUM % 3;
+//localparam L6_NUM = L5_NUM / 3 * 2 + L5_NUM % 3;
 
 //PPGEN
 wire [2*DATA_WIDTH-1:0] pp [PP_NUM];
-wire [2*DATA_WIDTH-1:0] tail_pp;
+//wire [2*DATA_WIDTH-1:0] tail_pp;
 wire [DATA_WIDTH:0] boothInx = {r, 1'b0};
 wire [PP_NUM-1:0] is_neg;
 
+/* verilator lint_off GENUNNAMED */
 genvar i;
 generate
     for(i=0; i<PP_NUM; i=i+1) begin : gen_pp 
@@ -35,20 +37,23 @@ generate
 
         encBooth2 ENCB (src, sel_x, sel_2x, is_neg[i]);
         ppGen #(DATA_WIDTH) PPGEN (m, sel_x, sel_2x, is_neg[i], tmp_pp);
-        assign pp[i] = tmp_pp << (2 * i);
+        if     (i == PP_NUM - 1) assign pp[i] = (tmp_pp+1) << (2 * i);
+        else if(i == 0         ) assign pp[i] = (tmp_pp << (2 * i));
+        /* verilator lint_off WIDTHEXPAND */
+        else                     assign pp[i] = (tmp_pp << (2 * i)) | (is_neg[i-1] << ((i-1) * 2));
+        /* verilator lint_on WIDTHEXPAND */
     end
 endgenerate
 
-/* verilator lint_off GENUNNAMED */
-genvar j;
-generate
-    for(j=0; j < 2*DATA_WIDTH; j = j + 1) begin : gen_tail
-        if((j < 2 * PP_NUM) && (j % 2 == 0))
-            assign tail_pp[j] = is_neg[j/2];
-        else
-            assign tail_pp[j] = 1'b0;
-    end
-endgenerate
+//genvar j;
+//generate
+//    for(j=0; j < 2*DATA_WIDTH; j = j + 1) begin : gen_tail
+//        if((j < 2 * PP_NUM) && (j % 2 == 0))
+//            assign tail_pp[j] = is_neg[j/2];
+//        else
+//            assign tail_pp[j] = 1'b0;
+//    end
+//endgenerate
 
 wire [2*DATA_WIDTH-1:0] stage0 [0:L0_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage1 [0:L1_NUM-1];
@@ -56,16 +61,17 @@ wire [2*DATA_WIDTH-1:0] stage2 [0:L2_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage3 [0:L3_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage4 [0:L4_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage5 [0:L5_NUM-1];
-wire [2*DATA_WIDTH-1:0] stage6 [0:L6_NUM-1];
+//wire [2*DATA_WIDTH-1:0] stage6 [0:L6_NUM-1];
 
 //levle 0
 genvar l0;
 generate
     for(l0=0;l0<L0_NUM;l0=l0+1) begin : NODE0
-        if(l0==(L0_NUM-1))
-            assign stage0[l0] = tail_pp;
-        else 
-            assign stage0[l0] = pp[l0];
+        //if(l0==(L0_NUM-1))
+        //    assign stage0[l0] = tail_pp;
+        //else 
+        //    assign stage0[l0] = pp[l0];
+        assign stage0[l0] = pp[l0];
     end
 endgenerate
 
@@ -137,35 +143,35 @@ generate
     end
 endgenerate
             
-//level 5
-genvar l5;
-generate
-    for(l5=0; l5<L4_NUM/3; l5=l5+1) begin : NODE5
-        csa #(2*DATA_WIDTH) CSA5 (stage4[3*l5], stage4[3*l5+1], stage4[3*l5+2], stage5[2*l5], stage5[2*l5+1]);
-    end
-endgenerate
-
-generate
-    if     (L4_NUM%3 == 1) 
-        assign stage5[2*(L4_NUM/3)] = stage4[3*(L4_NUM/3)];
-    else if(L4_NUM%3 == 2) begin
-        assign stage5[2*(L4_NUM/3)  ] = stage4[3*(L4_NUM/3)  ];
-        assign stage5[2*(L4_NUM/3)+1] = stage4[3*(L4_NUM/3)+1];
-    end
-endgenerate
+////level 5
+//genvar l5;
+//generate
+//    for(l5=0; l5<L4_NUM/3; l5=l5+1) begin : NODE5
+//        csa #(2*DATA_WIDTH) CSA5 (stage4[3*l5], stage4[3*l5+1], stage4[3*l5+2], stage5[2*l5], stage5[2*l5+1]);
+//    end
+//endgenerate
+//
+//generate
+//    if     (L4_NUM%3 == 1) 
+//        assign stage5[2*(L4_NUM/3)] = stage4[3*(L4_NUM/3)];
+//    else if(L4_NUM%3 == 2) begin
+//        assign stage5[2*(L4_NUM/3)  ] = stage4[3*(L4_NUM/3)  ];
+//        assign stage5[2*(L4_NUM/3)+1] = stage4[3*(L4_NUM/3)+1];
+//    end
+//endgenerate
             
 /* verilator lint_on GENUNNAMED */
             
-//level 6
+//level 5
 csa #(2*DATA_WIDTH) CSA6 (
-    .a    (stage5[0]), 
-    .b    (stage5[1]), 
-    .c    (stage5[2]), 
-    .sum  (stage6[0]), 
-    .carry(stage6[1])
+    .a    (stage4[0]), 
+    .b    (stage4[1]), 
+    .c    (stage4[2]), 
+    .sum  (stage5[0]), 
+    .carry(stage5[1])
 );
 
 //add
-assign result = stage6[0] + stage6[1];
+assign result = stage5[0] + stage5[1];
 
 endmodule
