@@ -176,13 +176,13 @@ wire [2*SIG_BITS-1:0] sig_res = compl_sig_res[2*SIG_BITS-1:0];
 wire                  carry = sig_res[2*SIG_BITS-1];
 wire [2*SIG_BITS-1:0] s_sig_res  = carry ? sig_res : sig_res << 1;
 wire                  s_sign_res = sign_a ^ sign_b;
-wire [EXP_BITS-1:0] exp_res = compl_add_exp + 1;
-wire [EXP_BITS-1:0] s_exp_res = {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
 /* verilator lint_off WIDTHEXPAND */
-//wire [  EXP_BITS-1:0] s_exp_res  = add_exp + SIG_BITS - lamt;
+wire [EXP_BITS-1:0] exp_res = compl_add_exp + carry;
 /* verilator lint_on WIDTHEXPAND */
+wire [EXP_BITS-1:0] s_exp_res = {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
 
 //round
+wire underUnormal;
 wire [2*SIG_BITS-1:0] r_sig ;
 wire [EXP_BITS  -1:0] r_exp ;
 wire                  r_sign;
@@ -193,21 +193,22 @@ round #(
     .EXP_BITS(EXP_BITS  ),
     .FRA_BITS(FRA_BITS  )
 ) ROUND (
-	.sig     (s_sig_res ),
-	.exp     (s_exp_res ),
-	.sign    (s_sign_res),
-	.Insticky(1'b0      ),
-	.nv      (1'b0      ),
-	.dz      (1'b0      ),
-	.frm     (frm       ),
-	.fflags  (fflags    ),
-	.o_sig   (r_sig     ),
-	.o_exp   (r_exp     ),
-    .o_sign  (r_sign    )
+	.sig         (s_sig_res   ),
+	.exp         (s_exp_res   ),
+	.sign        (s_sign_res  ),
+	.Insticky    (1'b0        ),
+	.nv          (1'b0        ),
+	.dz          (1'b0        ),
+	.frm         (frm         ),
+	.fflags      (fflags      ),
+	.underUnormal(underUnormal),
+	.o_sig       (r_sig       ),
+	.o_exp       (r_exp       ),
+    .o_sign      (r_sign      )
 );
 
-wire [SIG_BITS-1:0] o_sig  = r_sig[2*SIG_BITS-1:SIG_BITS];
-wire [EXP_BITS-1:0] o_exp  = r_exp ;
+wire [SIG_BITS-1:0] o_sig  = underUnormal ? 0 : r_sig[2*SIG_BITS-1:SIG_BITS];
+wire [EXP_BITS-1:0] o_exp  = underUnormal ? 0 : r_exp ;
 wire                o_sign = r_sign;
 
 //inf 

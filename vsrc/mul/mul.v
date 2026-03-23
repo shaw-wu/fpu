@@ -37,9 +37,9 @@ generate
 
         encBooth2 ENCB (src, sel_x, sel_2x, is_neg[i]);
         ppGen #(DATA_WIDTH) PPGEN (m, sel_x, sel_2x, is_neg[i], tmp_pp);
-        if     (i == PP_NUM - 1) assign pp[i] = (tmp_pp+1) << (2 * i);
-        else if(i == 0         ) assign pp[i] = (tmp_pp << (2 * i));
         /* verilator lint_off WIDTHEXPAND */
+        if     (i == PP_NUM - 1) assign pp[i] = (tmp_pp+is_neg[i]) << (2 * i) | (is_neg[i-1] << ((i-1) * 2));
+        else if(i == 0         ) assign pp[i] = (tmp_pp << (2 * i));
         else                     assign pp[i] = (tmp_pp << (2 * i)) | (is_neg[i-1] << ((i-1) * 2));
         /* verilator lint_on WIDTHEXPAND */
     end

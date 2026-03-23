@@ -10,6 +10,7 @@ module round #(
 	input 				   nv          ,
 	input 				   dz          ,
 	input  [          2:0] frm         ,
+	output                 underUnormal,
 	output [          4:0] fflags      ,
 	output [SIG_BITS -1:0] o_sig       ,
 	output [EXP_BITS -1:0] o_exp       ,
@@ -18,6 +19,7 @@ module round #(
 
 localparam EXPNOR_MAX = {3'b101, {(EXP_BITS-3){1'b1}}};
 
+assign underUnormal = (exp < 9'b0_0110_1011);
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 wire [EXP_BITS-1:0] Unormalize_n = 9'b0_1000_0001 - exp; //-127 - e
 
@@ -57,9 +59,9 @@ assign o_sig = of       ? of_sig                       :
                sig_cout ? {1'b1, {(SIG_BITS-1){1'b0}}} : {sig_res, {(SIG_BITS-FRA_BITS){1'b0}}};
 assign o_sign = sign;
 
-wire nx = guardBit || roundBit || stickyBit || of;
+wire nx = guardBit || roundBit || stickyBit || of || underUnormal;
 wire of = (exp > EXPNOR_MAX) || ((exp + {{(EXP_BITS-1){1'b0}}, sig_cout}) > EXPNOR_MAX);//exp > 127
-wire uf = isUnormalize && nx; //exp < -126-23 
+wire uf = (isUnormalize && nx) || underUnormal; //exp < -126-23 
 
 assign fflags = {nv, dz, of, uf, nx};
 

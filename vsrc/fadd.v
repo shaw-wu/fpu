@@ -464,17 +464,20 @@ round #(
     .EXP_BITS(EXP_BITS),
     .FRA_BITS(FRA_BITS)
 ) ROUND (
-	.sig     (s3_s_sig_res ),
-	.exp     (s3_s_exp_res ),
-	.sign    (s3_s_sign_res),
-	.Insticky(s3_stickyBit ),
-	.nv      (1'b0         ),
-	.dz      (1'b0         ),
-	.frm     (s3_frm       ),
-	.fflags  (fflags       ),
-	.o_sig   (o_sig        ),
-	.o_exp   (o_exp        ),
-    .o_sign  (o_sign       )
+	.sig         (s3_s_sig_res ),
+	.exp         (s3_s_exp_res ),
+	.sign        (s3_s_sign_res),
+	.Insticky    (s3_stickyBit ),
+	.nv          (1'b0         ),
+	.dz          (1'b0         ),
+	.frm         (s3_frm       ),
+	.fflags      (fflags       ),
+/*verilator lint_off PINCONNECTEMPTY*/
+	.underUnormal(             ),
+/*verilator lint_on PINCONNECTEMPTY*/
+	.o_sig       (o_sig        ),
+	.o_exp       (o_exp        ),
+    .o_sign      (o_sign       )
 );
 
 //qnan
