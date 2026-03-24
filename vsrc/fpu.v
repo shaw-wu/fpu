@@ -144,12 +144,13 @@ always @(posedge clk or posedge rst) begin
 
         end else if((s0_current_state == S0_WAIT_ADD) && s1_ready && add_iready) begin
             
-            //if     (s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
+            if(s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
             if(s4_valid && o_ready) cntTrans0_add <= cntTrans0_add    ;
             else                    cntTrans0_add <= cntTrans0_add + 1;
 
         end else if((s0_current_state == S0_WAIT_MUL) && s1_ready && mul_iready) begin
             
+            if(s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
             if(s4_valid && o_ready) cntTrans0_mul <= cntTrans0_mul    ;
             else                    cntTrans0_mul <= cntTrans0_mul + 1;
 
