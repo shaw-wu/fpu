@@ -149,6 +149,8 @@ wire [EXP_BITS-1:0] compl_exp_a = {!exp_a[EXP_BITS-1], exp_a[EXP_BITS-2:0]};
 wire [EXP_BITS-1:0] compl_exp_b = {!exp_b[EXP_BITS-1], exp_b[EXP_BITS-2:0]};
 
 wire [EXP_BITS-1:0] compl_add_exp = compl_exp_a + compl_exp_b;
+wire neg_overflow =  compl_exp_a[EXP_BITS-1] &&  compl_exp_b[EXP_BITS-1] ? !compl_add_exp[EXP_BITS-1] : 0;
+wire pos_overflow = !compl_exp_a[EXP_BITS-1] && !compl_exp_b[EXP_BITS-1] ?  compl_add_exp[EXP_BITS-1] : 0;
 
 //sig multiplier
 wire [2*SIG_BITS+1:0] compl_sig_res;
@@ -178,8 +180,11 @@ wire [2*SIG_BITS-1:0] s_sig_res  = carry ? sig_res : sig_res << 1;
 wire                  s_sign_res = sign_a ^ sign_b;
 /* verilator lint_off WIDTHEXPAND */
 wire [EXP_BITS-1:0] exp_res = compl_add_exp + carry;
+wire res_over = !compl_add_exp[EXP_BITS-1] && exp_res[EXP_BITS-1];
 /* verilator lint_on WIDTHEXPAND */
-wire [EXP_BITS-1:0] s_exp_res = {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
+wire [EXP_BITS-1:0] s_exp_res = neg_overflow             ? 0                              : 
+                                pos_overflow || res_over ? {3'b110, {(EXP_BITS-3){1'b0}}} : {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
+//wire [EXP_BITS-1:0] s_exp_res = {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
 
 //round
 wire underUnormal;
@@ -212,10 +217,7 @@ wire [EXP_BITS-1:0] o_exp  = underUnormal ? 0 : r_exp ;
 wire                o_sign = r_sign;
 
 //inf 
-wire                INf_sign_res = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? QNAN[DATA_WIDTH-1] : 
-                                    isINf_a && isINf_b                            ? sign_a ^ sign_b   :
-                                    isINf_a                                       ? sign_a            :
-                                    isINf_b                                       ? sign_b            : 0;//Inf Inf
+wire                INf_sign_res = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? QNAN[DATA_WIDTH-1] : sign_a ^ sign_b;//Inf Inf
 wire [EXP_BITS-1:0] INf_exp_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN[FRA_BITS-1+:EXP_BITS-1]} : {3'b110, {(EXP_BITS-3){1'b0}}};
 wire [SIG_BITS-1:0] INf_sig_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN[FRA_BITS-2 :         0]} : 0                             ;
 

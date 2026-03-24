@@ -22,7 +22,7 @@ wire [FRA_BITS-1 :0] fra_st ;
 //exception value
 wire isNAN        =  exp[RECEXP_BITS-1-:3] == 3'b111;
 wire isINf        =  exp[RECEXP_BITS-1-:3] == 3'b110;
-wire isZero       =  exp[RECEXP_BITS-1-:3] == 3'b000;
+wire isZero       =  exp < 9'b0_0110_1011;
 wire isNormalize  = (exp >= 9'b0_1000_0010) && (exp <= 9'b1_0111_1111);
 wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 
