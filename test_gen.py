@@ -15,10 +15,10 @@ tasks = {
     "feq.s":      [0x04, "f32_eq_quiet",  2],
     "flt.s":      [0x05, "f32_lt_quiet",  2],
     "fle.s":      [0x06, "f32_le_quiet",  2], # 比较指令通常不收 frm 影响，但为了统一格式也遍历一次
-    #"fcvt.w.s":   [0x0a, "f32_to_i32", 1],
-    #"fcvt.wu.s":  [0x0b, "f32_to_ui32",1],
-    #"fcvt.s.w":   [0x0c, "i32_to_f32", 1],
-    #"fcvt.s.wu":  [0x0d, "ui32_to_f32",1],
+    "fcvt.w.s":   [0x0a, "f32_to_i32", 1],
+    "fcvt.wu.s":  [0x0b, "f32_to_ui32",1],
+    "fcvt.s.w":   [0x0c, "i32_to_f32", 1],
+    "fcvt.s.wu":  [0x0d, "ui32_to_f32",1],
     "fmin.s":     [0x0f, "f32_min", 2],
     "fmax.s":     [0x10, "f32_max", 2],
 }

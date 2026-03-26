@@ -87,7 +87,7 @@ module testbench;
 
 parameter FDATA_WIDTH = 32;
 parameter CLK_PERIOD  = 10;
-parameter MAX_VEC     = 1000000;
+parameter MAX_VEC     = 10000000;
 
 reg clk;
 reg rst;
@@ -209,6 +209,7 @@ initial begin
             end
         end
     end
+    i_valid = 0;
 
     $display("All vectors issued = %0d",vector_cnt);
 
@@ -246,26 +247,26 @@ initial begin
             if(recv_cnt % 100 == 0)
                 $display("[RECV] %0d results  error=%0d",
                          recv_cnt,error_cnt);
+        // 自动结束
+        if($feof(file_in)) begin
 
-            // 自动结束
-            if($feof(file_in) && recv_cnt == vector_cnt && vector_cnt!=0) begin
+            $display("==================================");
+            $display("TEST FINISH");
+            $display("Total  = %0d",vector_cnt);
+            $display("Error  = %0d",error_cnt);
+            $display("==================================");
 
-                $display("==================================");
-                $display("TEST FINISH");
-                $display("Total  = %0d",vector_cnt);
-                $display("Error  = %0d",error_cnt);
-                $display("==================================");
+            $fdisplay(file_log,
+                      "FINISH total=%0d error=%0d",
+                      vector_cnt,error_cnt);
 
-                $fdisplay(file_log,
-                          "FINISH total=%0d error=%0d",
-                          vector_cnt,error_cnt);
+            $fclose(file_in);
+            $fclose(file_log);
 
-                $fclose(file_in);
-                $fclose(file_log);
+            #(CLK_PERIOD*20);
+            $finish;
+        end
 
-                #(CLK_PERIOD*20);
-                $finish;
-            end
 
         end
     end

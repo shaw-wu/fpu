@@ -50,7 +50,7 @@ assign sigres = shift_xdata + roundIncre;
 
 //overflow
 wire of = (u_i && overflow_wu) || (!u_i && overflow_w);
-wire overflow_wu = sign ? exp > {1'b1, {(EXP_BITS-1){1'b0}}}                                                : (exp > (RE_DATAWIDTH - 1));//sign > 0 ? exp > 0 ? exp > 31;
+wire overflow_wu = (exp > (RE_DATAWIDTH - 1));//sign < 0 ? 1 : exp > 31;
 wire overflow_w  = sign ? (exp > RE_DATAWIDTH) || ((exp == RE_DATAWIDTH) && (sig != (1 << (SIG_BITS - 1)))) : (exp > (RE_DATAWIDTH - 1));
 
 //result
@@ -59,10 +59,12 @@ wire [DATA_BITS-1:0] comp_res = sigres == 0 ? 0                           :
                                 sign        ? {1'b1, neg_sigres         } : {1'b0, sigres[DATA_BITS-2:0]} ;
 wire [DATA_BITS-1:0] of_wres  = sign ? {1'b1, {DATA_BITS-1{1'b0}}} : {1'b0, {DATA_BITS-1{1'b1}}}   ;
 
-assign wu_res = of ? {DATA_BITS{1'b1}} : sigres  ;
+assign wu_res = isnan ? {DATA_BITS{1'b1}} :
+                sign  ? 0                 : 
+                of    ? {DATA_BITS{1'b1}} : sigres ;
 assign w_res  = of ? of_wres           : comp_res;
 
-assign nv = isnan || isinf || of;
+assign nv = isnan || isinf || of || (u_i && sign);
 assign nx = !nv && (guardBit || roundBit || stickyBit);
 
 endmodule

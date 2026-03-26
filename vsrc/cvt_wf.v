@@ -35,7 +35,7 @@ ldz #(
     .out(full_shift_amt)
 );
 
-wire [DATA_BITS-1:0] shift_sig = xdata << shift_amt;
+wire [DATA_BITS-1:0] shift_sig = data << shift_amt;
  
 //round
 wire [SIG_BITS-1:0] sigres ;

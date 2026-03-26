@@ -54,6 +54,7 @@ wire pre_fcvt_wu_s = sel == 'd11;
 /*========  stage 0 ========*/
 reg [FDATA_BITS-1:0] s0_fina;
 reg [FDATA_BITS-1:0] s0_finb;
+reg [DATA_WIDTH-1:0] s0_ina ;
 
 reg [FRM_BITS  -1:0] s0_frm;
 reg [           4:0] s0_sel;
@@ -72,12 +73,12 @@ reg [4:0] s0_current_state, s0_next_state;
 always @(*) begin
 	case(s0_current_state)
 		S0_IDLE : begin
-			if     (i_valid && isTrans2 && !haveTrans0 && !haveTrans1) s0_next_state = S0_WAIT2   ;
-			else if(i_valid && isTrans2                              ) s0_next_state = S0_IDLE    ;
-			else if(i_valid && isTrans1                              ) s0_next_state = S0_WAIT1   ;
-			else if(i_valid && isTrans0_add && !haveTrans0_mul       ) s0_next_state = S0_WAIT_ADD;
-			else if(i_valid && isTrans0_mul && !haveTrans0_add       ) s0_next_state = S0_WAIT_MUL;
-			else		                                               s0_next_state = S0_IDLE    ;
+			if     (i_valid && isTrans2 && !haveTrans0 && !haveTrans1 ) s0_next_state = S0_WAIT2   ;
+			else if(i_valid && isTrans2 && (haveTrans0 ||  haveTrans1)) s0_next_state = S0_IDLE    ;
+			else if(i_valid && isTrans1                               ) s0_next_state = S0_WAIT1   ;
+			else if(i_valid && isTrans0_add && !haveTrans0_mul        ) s0_next_state = S0_WAIT_ADD;
+			else if(i_valid && isTrans0_mul && !haveTrans0_add        ) s0_next_state = S0_WAIT_MUL;
+			else		                                                s0_next_state = S0_IDLE    ;
 		end
 		S0_WAIT2  : begin//don't need to wait trans1 or trans0
             if     (o_ready && isTrans2     &&  i_valid) s0_next_state = S0_WAIT2   ;
@@ -122,6 +123,7 @@ always @(posedge clk or posedge rst) begin
         s0_frm <= 0;
         s0_sel <= 0;
 
+        s0_ina  <= 0;
         s0_fina <= 0;
         s0_finb <= 0;
 
@@ -132,6 +134,7 @@ always @(posedge clk or posedge rst) begin
             s0_frm <= frm;
             s0_sel <= sel;
 
+            s0_ina  <= ina ;
             s0_fina <= fina;
             s0_finb <= finb;
         end 
@@ -144,13 +147,13 @@ always @(posedge clk or posedge rst) begin
 
         end else if((s0_current_state == S0_WAIT_ADD) && s1_ready && add_iready) begin
             
-            if(s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
+            if(s1_valid && o_ready && !haveTrans0) cntTrans1 <= cntTrans1 - 1;
             if(s4_valid && o_ready) cntTrans0_add <= cntTrans0_add    ;
             else                    cntTrans0_add <= cntTrans0_add + 1;
 
         end else if((s0_current_state == S0_WAIT_MUL) && s1_ready && mul_iready) begin
             
-            if(s1_valid && o_ready && !haveTrans0 && !isTrans1  ) cntTrans1 <= cntTrans1 - 1;
+            if(s1_valid && o_ready && !haveTrans0) cntTrans1 <= cntTrans1 - 1;
             if(s4_valid && o_ready) cntTrans0_mul <= cntTrans0_mul    ;
             else                    cntTrans0_mul <= cntTrans0_mul + 1;
 
@@ -158,7 +161,7 @@ always @(posedge clk or posedge rst) begin
             
             if     (s4_valid && o_ready && haveTrans0_add) cntTrans0_add <= cntTrans0_add - 1;
             else if(s4_valid && o_ready && haveTrans0_mul) cntTrans0_mul <= cntTrans0_mul - 1;
-            if(s1_valid && o_ready && !haveTrans0 && !isTrans1) cntTrans1 <= cntTrans1 - 1;
+            if(s1_valid && o_ready && !isTrans1) cntTrans1 <= cntTrans1 - 1;
 
         end
 	end
@@ -419,9 +422,9 @@ always @(*) begin
 			else									  s1_next_state = S1_IDLE;
 		end
 		S1_WAIT : begin
-			if     (s0_valid && o_ready && !haveTrans0 && (fcvt_wu_s || fcvt_w_s)) s1_next_state = S1_WAIT;
-			else if(o_ready  && !haveTrans0                                      ) s1_next_state = S1_IDLE;
-			else	                                                               s1_next_state = S1_WAIT;
+			if     (s0_valid && o_ready && s1_valid && (fcvt_wu_s || fcvt_w_s)) s1_next_state = S1_WAIT;
+			else if(o_ready  && s1_valid                                      ) s1_next_state = S1_IDLE;
+			else	                                                            s1_next_state = S1_WAIT;
 		end
         default : s1_next_state = S1_IDLE;
 	endcase
@@ -482,8 +485,8 @@ always @(posedge clk or posedge rst) begin
 	end
 end
 
-assign s1_valid = (s1_current_state == S1_WAIT); 
-assign s1_ready = (s1_current_state == S1_IDLE) || (s1_valid && o_ready && !haveTrans0); 
+assign s1_valid = (s1_current_state == S1_WAIT) && !haveTrans0; 
+assign s1_ready = (s1_current_state == S1_IDLE) || (s1_valid && o_ready); 
 
 //fcvt_w_s and fcvt_wu_s
 wire [DATA_WIDTH-1:0] fcss_fresult;
@@ -618,8 +621,8 @@ cvt_wf #(
 	.EXP_BITS  (EXP_BITS  )
 ) cvt_s_x(
 	.u_i   (fcvt_s_wu),
-	.xdata (ina		 ),
-	.frm   (frm		 ),
+	.xdata (s0_ina   ),
+	.frm   (s0_frm   ),
 	.sign  (fcxs_sign),
 	.exp   (fcxs_exp ),
 	.sig   (fcxs_sig ),
@@ -720,6 +723,6 @@ assign fflags = fadd_s_valid || fsub_s_valid                ? s4_add_res_fflags 
                 fmin_s                                      ? fmin_fflags       :
                 fmax_s                                      ? fmax_fflags       : 5'b0;
 
-assign o_valid = (s0_current_state == S0_WAIT2) || (s1_valid && !haveTrans0) || s4_valid;
+assign o_valid = (s0_current_state == S0_WAIT2) || s1_valid || s4_valid;
 
 endmodule

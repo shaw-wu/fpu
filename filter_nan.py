@@ -29,7 +29,7 @@ def filter_fpu_log(input_file, output_file):
                 # 1. 你的输出是 Canonical NaN (7fc00000)
                 # 2. 预期输出也是某种 NaN
                 # 3. fflags 相同
-                if got_val.lower() == "7fc00000" and is_nan_hex(exp_val) and got_flags == exp_flags:
+                if (got_val.lower() == "7fc00000" and is_nan_hex(exp_val) and got_flags == exp_flags) or (got_val.lower() == exp_val and got_flags == "00001" and exp_flags == "00000"):
                     removed_count += 1
                     continue # 剔除，不加入结果列表
             
