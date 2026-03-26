@@ -17,7 +17,7 @@ endif
 #配置选项
 TOP_MODULE = testbench
 SIM_TIME ?= 50000000
-ENABLE_WAVEFORM ?= 1
+ENABLE_WAVEFORM ?= 0
 
 #目录
 BUILD_DIR = $(CURDIR)/build

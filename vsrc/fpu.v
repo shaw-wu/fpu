@@ -641,42 +641,42 @@ wire [FDATA_BITS-1:0] fclass_fresult = isINf_a        &&  sign_a ? 0 :
                                        isQNAN_a                  ? 9 : 0;
 //fclass_fresult == 0;
 
+wire                st_sign_a = s0_fina[FDATA_BITS-1          ];
+wire [EXP_BITS-1:0] st_exp_a  = s0_fina[FDATA_BITS-2-:EXP_BITS];
+wire [FRA_BITS-1:0] st_fra_a  = s0_fina[FRA_BITS  -1 :0       ];
+wire                st_sign_b = s0_finb[FDATA_BITS-1          ];
 //feq
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b) ? 0 : (fina == finb) || ((fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0)); 
+wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b) ? 0 : (s0_fina == s0_finb) || ((s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0)); 
 /* verilator lint_on WIDTHEXPAND */
 wire [4:0] feq_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //flt
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b               ? 0           :
-                                    (fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0) ? 0           :
-                                    sign_a ^ sign_b                                            ? sign_a      :
-                                    !sign_a                                                    ? fina < finb : fina > finb;
+wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b                     ? 0                 :
+                                    (s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0) ? 0                 :
+                                    st_sign_a ^ st_sign_b                                            ? st_sign_a            :
+                                    !st_sign_a                                                       ? s0_fina < s0_finb : s0_fina > s0_finb;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] flt_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};                                               
+wire [4:0] flt_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
 
 //fle
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b               ? 0            :
-                                    (fina[FDATA_BITS-2:0] == 0) && (finb[FDATA_BITS-2:0] == 0) ? 1           :
-                                    sign_a ^ sign_b                                            ? sign_a       :
-                                    !sign_a                                                    ? fina <= finb : fina >= finb;
+wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b                     ? 0                  :
+                                    (s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0) ? 1                  :
+                                    st_sign_a ^ st_sign_b                                            ? st_sign_a          :
+                                    !st_sign_a                                                       ? s0_fina <= s0_finb : s0_fina >= s0_finb;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] fle_fflags = {isQNAN_a || isQNAN_b || isSNAN_a || isSNAN_b, 4'b0};
+wire [4:0] fle_fflags = {isSNAN_a || isSNAN_b, 4'b0};
 
 //fmin
-wire [FDATA_BITS-1:0] fmin_fresult = flt_fresult[0] ? fina : finb;
+wire [FDATA_BITS-1:0] fmin_fresult = flt_fresult[0] ? s0_fina : s0_finb;
 wire [4:0] fmin_fflags = flt_fflags;
 
 //fmax
-wire [FDATA_BITS-1:0] fmax_fresult = flt_fresult[0] ? finb : fina;
+wire [FDATA_BITS-1:0] fmax_fresult = flt_fresult[0] ? s0_finb : s0_fina;
 wire [4:0] fmax_fflags = flt_fflags;
 
-wire                st_sign_a = fina[FDATA_BITS-1          ];
-wire [EXP_BITS-1:0] st_exp_a  = fina[FDATA_BITS-2-:EXP_BITS];
-wire [FRA_BITS-1:0] st_fra_a  = fina[FRA_BITS  -1 :0       ];
-wire                st_sign_b = finb[FDATA_BITS-1          ];
 //fsgnj
 wire [FDATA_BITS-1:0] fsgnj_fresult = {st_sign_b, st_exp_a, st_fra_a}; //fsgnj_fflags = 0;
 

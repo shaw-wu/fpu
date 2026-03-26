@@ -162,13 +162,17 @@ initial begin
     i_valid = 0;
     o_ready = 1;
 
-   // sel = 5'd0;       // FADD
-    frm = 3'd0;       // RNE
+    //sel = 5'd6;       // FADD
+    //frm = 3'd0;       // RNE
+    //frm = 3'd1;       // RTZ
+    //frm = 3'd2;       // RDN
+    //frm = 3'd3;       // RUP
+    //frm = 3'd4;       // RMM
 
     #(CLK_PERIOD*10);
     rst = 0;
 
-    file_in  = $fopen("fmul-rte.tmp","r");
+    file_in  = $fopen("fpu_test_suite.tmp","r");
     file_log = $fopen("log.tmp","w");
 
     if(file_in==0 || file_log==0) begin
@@ -185,10 +189,10 @@ initial begin
         if(i_ready) begin
 
             #1
-            status = $fscanf(file_in,"%h %h %h %h %h\n",
-                             fina, finb, exp_res, exp_flag, sel);
+            status = $fscanf(file_in,"%h %h %h %h %h %h\n",
+                             fina, finb, exp_res, exp_flag, frm, sel);
 
-            if(status==5) begin
+            if(status==6) begin
 
                 // push queue
                 exp_res_q[tail]  = exp_res;

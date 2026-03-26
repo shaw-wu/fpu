@@ -21,6 +21,7 @@ localparam EXPNOR_MAX = {3'b101, {(EXP_BITS-3){1'b1}}};
 localparam EXPUNOR_MIN = 9'b0_0110_1011;
 
 wire i_underUnormal = (exp < EXPUNOR_MIN);
+wire is_zero = exp[EXP_BITS-1-:3] == 3'b000;
 assign underUnormal = (o_exp < EXPUNOR_MIN);
 //wire isUnormalize = (exp >= 9'b0_0110_1011) && (exp <= 9'b0_1000_0001);
 wire i_isUnormalize = (exp <= 9'b0_1000_0001);
@@ -69,9 +70,9 @@ assign o_sig = of                                  ? of_sig                     
                sig_cout                            ? {1'b1, {(SIG_BITS-1){1'b0}}} : {sig_res, {(SIG_BITS-FRA_BITS){1'b0}}};
 assign o_sign = sign;
 
-wire nx = guardBit || roundBit || stickyBit || of || underUnormal;
+wire nx = guardBit || roundBit || stickyBit || of || (underUnormal && !is_zero);
 wire of = (exp > EXPNOR_MAX) || ((exp + {{(EXP_BITS-1){1'b0}}, sig_cout}) > EXPNOR_MAX);//exp > 127
-wire uf = (isUnormalize && nx) || underUnormal; //exp < -126-23 
+wire uf = (isUnormalize && nx) || (underUnormal && !is_zero); //exp < -126-23 
 
 assign fflags = {nv, dz, of, uf, nx};
 
