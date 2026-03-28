@@ -1,10 +1,10 @@
 module fadd #(
     parameter FRM_BITS = 3 ,
     parameter FLA_BITS = 5 ,
-    parameter SIG_BITS = 32,
-    parameter SIG_SIZE = 5 ,
-    parameter FRA_BITS = 24,
-    parameter EXP_BITS = 9 
+    parameter SIG_BITS = 53,
+    parameter SIG_SIZE = 6 ,
+//    parameter FRA_BITS = 53,
+    parameter EXP_BITS = 12
 )(
 /*verilator lint_off UNUSED*/
 	input                 aclk			 ,
@@ -46,7 +46,13 @@ module fadd #(
     //output                m_axis_res_isINf ,
     output [FLA_BITS-1:0] m_axis_res_fflags
 );
-parameter QNAN = 32'h7fc00000; 
+//parameter QNAN_S = 64'h7fc00000; 
+parameter QNAN_D = 64'h7ff80000_00000000; 
+
+//localparam EXPUNOR_MIN_S = 12'b0_0110_1011    ;
+localparam EXPUNOR_MIN_D = 12'b0_011_1100_1110;
+//localparam EXPUNOR_MAX_S = 12'b0_1000_0001    ;
+localparam EXPUNOR_MAX_D = 12'b0_100_0000_0001;
  
 assign s_axis_a_tready = s1_ready;
 assign s_axis_b_tready = s1_ready;
@@ -147,41 +153,43 @@ end
 assign s1_valid = s1_current_state == S1_WAIT;
 assign s1_ready = s1_current_state == S1_IDLE || (s1_valid && s2_ready);
 
-//wire isSNAN = s_axis_a_isSNAN || s_axis_b_isSNAN;
-//wire isQNAN = s_axis_a_isQNAN || s_axis_b_isQNAN;
-//wire isINf  = s_axis_a_isINf  || s_axis_b_isINf ;
-//wire isZero = s_axis_a_isZero || s_axis_b_isZero;
-
-//wire                sign_a = s_axis_a_sign;
-//wire [SIG_BITS-1:0] sig_a  = s_axis_a_sig ;
-//wire [EXP_BITS-1:0] exp_a  = s_axis_a_exp ;
-//wire                sign_b = s_axis_b_sign;
-//wire [SIG_BITS-1:0] sig_b  = s_axis_b_sig ;
-//wire [EXP_BITS-1:0] exp_b  = s_axis_b_exp ;
-
 wire is_sub = s1_sel;
 
-//exp compare(9 bits)
+//exp compare(12 bits)
 wire                comp_exp_ab  = s1_exp_a < s1_exp_b;
 wire [EXP_BITS-1:0] exp_diff     = comp_exp_ab ? s1_exp_b - s1_exp_a : s1_exp_a - s1_exp_b;
 
 //sig right shift
 /* verilator lint_off WIDTHTRUNC*/
-wire [SIG_SIZE    :0] sig_amt = (exp_diff >= 32) ? 32 : exp_diff;
+wire [SIG_SIZE    :0] sig_amt = (exp_diff >= SIG_BITS+2) ? SIG_BITS+2 : exp_diff[SIG_SIZE:0];
 /* verilator lint_on WIDTHTRUNC*/
 
-wire [SIG_BITS-1:0] mask = ~({SIG_BITS{1'b1}} << sig_amt);
-wire [SIG_BITS-1:0] full_sigShift_a =  comp_exp_ab ? s1_sig_a >> sig_amt : s1_sig_a;
-wire [SIG_BITS-1:0] full_sigShift_b = !comp_exp_ab ? s1_sig_b >> sig_amt : s1_sig_b;
-wire sticky_a = |(mask & s1_sig_a);
-wire sticky_b = |(mask & s1_sig_b);
+wire [SIG_BITS-1:0] guardmask  = sig_amt >= 1 ?  (1                << (sig_amt-1)) : 0;
+wire [SIG_BITS-1:0] roundmask  = sig_amt >= 2 ?  (1                << (sig_amt-2)) : 0;
+wire [SIG_BITS-1:0] stickymask = sig_amt >= 3 ? ~({SIG_BITS{1'b1}} << (sig_amt-2)) : 0;
+//wire [SIG_BITS-1:0] full_sigShift_a =  comp_exp_ab ? s1_sig_a >> sig_amt : s1_sig_a;
+//wire [SIG_BITS-1:0] full_sigShift_b = !comp_exp_ab ? s1_sig_b >> sig_amt : s1_sig_b;
+wire [SIG_BITS-1:0] sigShift_a =  comp_exp_ab ? s1_sig_a >> sig_amt : s1_sig_a;
+wire [SIG_BITS-1:0] sigShift_b = !comp_exp_ab ? s1_sig_b >> sig_amt : s1_sig_b;
 
-wire sticky_shift = comp_exp_ab ? sticky_a : sticky_b; 
+wire guard_a  = |(guardmask  & s1_sig_a);
+wire guard_b  = |(guardmask  & s1_sig_b);
+wire round_a  = |(roundmask  & s1_sig_a);
+wire round_b  = |(roundmask  & s1_sig_b);
+wire sticky_a = |(stickymask & s1_sig_a);
+wire sticky_b = |(stickymask & s1_sig_b);
 
-wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a;
-wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b;
+wire guardBit  = comp_exp_ab ? guard_a  : guard_b ; 
+wire roundBit  = comp_exp_ab ? round_a  : round_b ; 
+wire stickyBit = comp_exp_ab ? sticky_a : sticky_b; 
 
-//sig origin add/sub(32 bits)
+wire stickyBits_a = guard_a || round_a || sticky_a;
+wire stickyBits_b = guard_b || round_b || sticky_b;
+
+//wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a;
+//wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b;
+
+//sig origin add/sub(53 bits)
 
 wire                sel_sign_b   = s1_sign_b ^ is_sub;
 wire                is_effsub    = sel_sign_b ^ s1_sign_a;
@@ -189,9 +197,11 @@ wire                comp_op      = sigShift_a > sigShift_b;
 
 /*======== stage 2 ========*/
 reg                s2_comp_exp_ab ;
-reg                s2_sticky_a    ;
-reg                s2_sticky_b    ;
-reg                s2_sticky_shift; 
+reg                s2_stickyBits_a;
+reg                s2_stickyBits_b;
+reg                s2_guardBit    ; 
+reg                s2_roundBit    ; 
+reg                s2_stickyBit   ; 
 reg [SIG_BITS-1:0] s2_sigShift_a  ;
 reg [SIG_BITS-1:0] s2_sigShift_b  ;
 reg                s2_sel_sign_b  ;
@@ -244,9 +254,11 @@ always @(posedge aclk, posedge areset) begin
         s2_current_state <= S2_IDLE;
 
         s2_comp_exp_ab  <= 0;
-        s2_sticky_a     <= 0;
-        s2_sticky_b     <= 0;
-        s2_sticky_shift <= 0; 
+        s2_stickyBits_a <= 0;
+        s2_stickyBits_b <= 0;
+        s2_guardBit     <= 0; 
+        s2_roundBit     <= 0; 
+        s2_stickyBit    <= 0; 
         s2_sigShift_a   <= 0;
         s2_sigShift_b   <= 0;
         s2_sel_sign_b   <= 0;
@@ -274,9 +286,11 @@ always @(posedge aclk, posedge areset) begin
         s2_current_state <= s2_next_state;
         if(s1_valid && s2_ready) begin
             s2_comp_exp_ab  <= comp_exp_ab ;
-            s2_sticky_a     <= sticky_a    ;
-            s2_sticky_b     <= sticky_b    ;
-            s2_sticky_shift <= sticky_shift; 
+            s2_stickyBits_a <= stickyBits_a;
+            s2_stickyBits_b <= stickyBits_b;
+            s2_guardBit     <= guardBit    ; 
+            s2_roundBit     <= roundBit    ; 
+            s2_stickyBit    <= stickyBit   ; 
             s2_sigShift_a   <= sigShift_a  ;
             s2_sigShift_b   <= sigShift_b  ;
             s2_sel_sign_b   <= sel_sign_b  ;
@@ -309,7 +323,7 @@ assign s2_ready = s2_current_state == S2_IDLE || (s2_valid && s3_ready);
 
 wire                overflow;
 /* verilator lint_off WIDTHEXPAND */
-wire [SIG_BITS-1:0] eff_sub_res  = s2_comp_op ? s2_sigShift_a - s2_sigShift_b - s2_sticky_b: s2_sigShift_b - s2_sigShift_a - s2_sticky_a;//sticky : Borrow in
+wire [SIG_BITS-1:0] eff_sub_res  = s2_comp_op ? s2_sigShift_a - s2_sigShift_b - s2_stickyBits_b : s2_sigShift_b - s2_sigShift_a - s2_stickyBits_a;//sticky : Borrow in
 /* verilator lint_on WIDTHEXPAND */
 wire                eff_sub_sign = s2_comp_op ? s2_sign_a : s2_sel_sign_b;
 wire [SIG_BITS-1:0] eff_add_res;
@@ -320,21 +334,30 @@ wire [SIG_BITS-1:0] add_sub_res  = s2_is_effsub ? eff_sub_res  : eff_add_res ;
 wire                add_sub_sign = s2_is_effsub ? eff_sub_sign : eff_add_sign;
 wire                of           = s2_is_effsub ? 1'b0         : overflow    ;
 
+wire [2:0] borrow_grs     = 3'b0 - {s2_guardBit, s2_roundBit, s2_stickyBit};
+wire       real_guardBit  = s2_is_effsub ? borrow_grs[2] : s2_guardBit ;
+wire       real_roundBit  = s2_is_effsub ? borrow_grs[1] : s2_roundBit ;
+wire       real_stickyBit = s2_is_effsub ? borrow_grs[0] : s2_stickyBit;
+wire [SIG_BITS+2:0] real_sig = {add_sub_res, real_guardBit, real_roundBit, real_stickyBit};
+
 //sig left shift
 wire [SIG_SIZE:0] pos;
 ldz #(
-    .DATA_BITS(SIG_BITS),
-    .DATA_SIZE(SIG_SIZE)
+    .DATA_BITS(SIG_BITS+3),
+    .DATA_SIZE(SIG_SIZE  )
 ) LDZ (
-    .in  (add_sub_res),
-    .out (pos        )
+    .in  (real_sig),
+    .out (pos     )
 );
 
 wire [SIG_SIZE-1:0] lamt = pos[SIG_SIZE-1:0];
-wire [SIG_BITS  :0] ls_sig_res = {add_sub_res, s2_sticky_shift} << lamt;
-wire [SIG_BITS-1:0] s_sig_res  = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : (pos[SIG_SIZE] ? 0 : ls_sig_res[SIG_BITS:1]);//of == 1 -> add_sub_res == 0
-wire                stickyBit  = of ? add_sub_res[0] || s2_sticky_shift : (pos[SIG_SIZE] ? 0 : ls_sig_res[0]         );
-wire                s_sign_res = pos[SIG_SIZE] && !of ? s2_frm == 3'b010 : add_sub_sign;
+wire [SIG_BITS+2:0] ls_sig_res  = real_sig << lamt;
+
+wire [SIG_BITS-1:0] s_sig_res   = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : (pos[SIG_SIZE] ? 0              : ls_sig_res[SIG_BITS+2:3]);
+wire                s_guardBit  = of ? add_sub_res[0]                    : (pos[SIG_SIZE] ? real_guardBit  : ls_sig_res[2]           );
+wire                s_roundBit  = of ? real_guardBit                     : (pos[SIG_SIZE] ? real_roundBit  : ls_sig_res[1]           );
+wire                s_stickyBit = of ? real_roundBit || real_stickyBit   : (pos[SIG_SIZE] ? real_stickyBit : ls_sig_res[0]           );
+wire                s_sign_res  = pos[SIG_SIZE] && !of ? s2_frm == 3'b010 : add_sub_sign;
 
 //exp 
 /* verilator lint_off WIDTHEXPAND */
@@ -364,6 +387,8 @@ reg                s3_isINf_b ;
 reg                s3_isZero_b;
 
 reg [SIG_BITS-1:0] s3_s_sig_res ;
+reg                s3_guardBit  ;
+reg                s3_roundBit  ;
 reg                s3_stickyBit ;
 reg                s3_s_sign_res;
 reg [EXP_BITS-1:0] s3_s_exp_res ;
@@ -416,6 +441,8 @@ always @(posedge aclk, posedge areset) begin
         s3_isZero_b   <= 0;
 
         s3_s_sig_res  <= 0;
+        s3_guardBit   <= 0;
+        s3_roundBit   <= 0;
         s3_stickyBit  <= 0;
         s3_s_sign_res <= 0;
         s3_s_exp_res  <= 0;
@@ -443,7 +470,9 @@ always @(posedge aclk, posedge areset) begin
             s3_isZero_b   <= s2_isZero_b  ;
 
             s3_s_sig_res  <= s_sig_res    ;
-            s3_stickyBit  <= stickyBit    ;
+            s3_guardBit   <= s_guardBit   ;
+            s3_roundBit   <= s_roundBit   ;
+            s3_stickyBit  <= s_stickyBit  ;
             s3_s_sign_res <= s_sign_res   ;
             s3_s_exp_res  <= s_exp_res    ;
         end
@@ -461,12 +490,13 @@ wire [FLA_BITS -1:0] fflags;
 
 round #(
     .SIG_BITS(SIG_BITS),
-    .EXP_BITS(EXP_BITS),
-    .FRA_BITS(FRA_BITS)
+    .EXP_BITS(EXP_BITS)
 ) ROUND (
 	.sig         (s3_s_sig_res ),
 	.exp         (s3_s_exp_res ),
 	.sign        (s3_s_sign_res),
+	.Inguard     (s3_guardBit  ),
+	.Inround     (s3_roundBit  ),
 	.Insticky    (s3_stickyBit ),
 	.nv          (1'b0         ),
 	.dz          (1'b0         ),
@@ -491,9 +521,9 @@ round #(
 //wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
 
 //inf 
-wire                DINf_sign_res = s3_sign_a ^ s3_sel_sign_b ? QNAN[31]                  : s3_sign_a;//Inf Inf
-wire [EXP_BITS-1:0] DINf_exp_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN[30:23]}       : s3_exp_a ;
-wire [SIG_BITS-1:0] DINf_sig_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN[22: 0], 8'b0} : s3_sig_a ;
+wire                DINf_sign_res = s3_sign_a ^ s3_sel_sign_b ? QNAN_D[63]            : s3_sign_a;//Inf Inf
+wire [EXP_BITS-1:0] DINf_exp_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN_D[62:52]} : s3_exp_a ;
+wire [SIG_BITS-1:0] DINf_sig_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN_D[51: 0]} : s3_sig_a ;
 
 wire                CINf_sign_res = s3_isINf_a ? s3_sign_a : s3_sel_sign_b;//Inf C
 wire [EXP_BITS-1:0] CINf_exp_res  = s3_isINf_a ? s3_exp_a  : s3_exp_b     ;
@@ -504,12 +534,12 @@ wire [EXP_BITS-1:0] INf_exp_res  = s3_isINf_a && s3_isINf_b ? DINf_exp_res  : CI
 wire [SIG_BITS-1:0] INf_sig_res  = s3_isINf_a && s3_isINf_b ? DINf_sig_res  : CINf_sig_res  ;
 
 //zero
-wire isUnormalize_a = (s3_exp_a >= 9'b0_0110_1011) && (s3_exp_a <= 9'b0_1000_0001);
-wire [EXP_BITS-1:0] Unormalize_n_a = 9'b0_1000_0001 - s3_exp_a; //-127 - e
+wire isUnormalize_a = (s3_exp_a >= EXPUNOR_MIN_D) && (s3_exp_a <= EXPUNOR_MAX_D);
+wire [EXP_BITS-1:0] Unormalize_n_a = EXPUNOR_MAX_D - s3_exp_a; //-127 - e
 wire [SIG_BITS-1:0] Zero_sig_a = isUnormalize_a ? s3_sig_a >> (Unormalize_n_a + 1) : s3_sig_a; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
 
-wire isUnormalize_b = (s3_exp_b >= 9'b0_0110_1011) && (s3_exp_b <= 9'b0_1000_0001);
-wire [EXP_BITS-1:0] Unormalize_n_b = 9'b0_1000_0001 - s3_exp_b; //-127 - e
+wire isUnormalize_b = (s3_exp_b >= EXPUNOR_MIN_D) && (s3_exp_b <= EXPUNOR_MAX_D);
+wire [EXP_BITS-1:0] Unormalize_n_b = EXPUNOR_MAX_D - s3_exp_b; //-127 - e
 wire [SIG_BITS-1:0] Zero_sig_b = isUnormalize_b ? s3_sig_b >> (Unormalize_n_b + 1) : s3_sig_b; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
 
 wire                Zero_sign_res = s3_isZero_a && s3_isZero_b ? (s3_sel_sign_b ^ s3_sign_a ? s3_frm == 3'b010 : s3_sign_a) ://0 (+/-) 0

@@ -42,7 +42,10 @@ assign isNormalize  = (exp_st != 0 && exp_st != {EXP_BITS{1'b1}});
 wire [FP_LOG  :0] pos;
 /*verilator lint_on UNUSED*/
 wire [FP_LOG-1:0] n  ;
-ldz LZD (
+ldz #(
+    .DATA_BITS(FP_BITS),
+    .DATA_SIZE(FP_LOG )
+) LZD (
 	.in ({fra_st, {(FP_BITS-FRA_BITS){1'b0}}}),
 	.out(pos)
 );

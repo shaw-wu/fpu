@@ -9,18 +9,18 @@ CASES_PER_MODE = 500  # 每种指令在每种舍入模式下生成的数量
 # 指令配置表: { "指令名": [sel值, "testfloat函数名", 操作数个数] }
 # sel 值你可以根据自己的译码逻辑修改
 tasks = {
-    "fadd.s":     [0x00, "f32_add", 2],
-    "fsub.s":     [0x01, "f32_sub", 2],
-    "fmul.s":     [0x02, "f32_mul", 2],
-    "feq.s":      [0x04, "f32_eq_quiet",  2],
-    "flt.s":      [0x05, "f32_lt_quiet",  2],
-    "fle.s":      [0x06, "f32_le_quiet",  2], # 比较指令通常不收 frm 影响，但为了统一格式也遍历一次
-    "fcvt.w.s":   [0x0a, "f32_to_i32", 1],
-    "fcvt.wu.s":  [0x0b, "f32_to_ui32",1],
-    "fcvt.s.w":   [0x0c, "i32_to_f32", 1],
-    "fcvt.s.wu":  [0x0d, "ui32_to_f32",1],
-    "fmin.s":     [0x0f, "f32_min", 2],
-    "fmax.s":     [0x10, "f32_max", 2],
+    "fadd.d":     [0x00, "f64_add", 2],
+    "fsub.d":     [0x01, "f64_sub", 2],
+    "fmul.d":     [0x02, "f64_mul", 2],
+    "feq.d":      [0x04, "f64_eq_quiet",  2],
+    "flt.d":      [0x05, "f64_lt_quiet",  2],
+    "fle.d":      [0x06, "f64_le_quiet",  2], # 比较指令通常不收 frm 影响，但为了统一格式也遍历一次
+    "fcvt.w.d":   [0x0a, "f64_to_i32", 1],
+    "fcvt.wu.d":  [0x0b, "f64_to_ui32",1],
+    "fcvt.d.w":   [0x0c, "i32_to_f64", 1],
+    "fcvt.d.wu":  [0x0d, "ui32_to_f64",1],
+    "fmin.d":     [0x0f, "f64_min", 2],
+    "fmax.d":     [0x10, "f64_max", 2],
 }
 
 # RISC-V 舍入模式映射

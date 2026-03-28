@@ -1,5 +1,5 @@
 module mul #(
-    parameter DATA_WIDTH = 24 
+    parameter DATA_WIDTH = 54 
 )(
 //    input                     clk   ,
 //    input                     rst   ,
@@ -9,14 +9,14 @@ module mul #(
 );
 
 localparam PP_NUM = (DATA_WIDTH+1)/2;
-//localparam L0_NUM = PP_NUM + 1;
 localparam L0_NUM = PP_NUM;
 localparam L1_NUM = L0_NUM / 3 * 2 + L0_NUM % 3;
 localparam L2_NUM = L1_NUM / 3 * 2 + L1_NUM % 3;
 localparam L3_NUM = L2_NUM / 3 * 2 + L2_NUM % 3;
 localparam L4_NUM = L3_NUM / 3 * 2 + L3_NUM % 3;
 localparam L5_NUM = L4_NUM / 3 * 2 + L4_NUM % 3;
-//localparam L6_NUM = L5_NUM / 3 * 2 + L5_NUM % 3;
+localparam L6_NUM = L5_NUM / 3 * 2 + L5_NUM % 3;
+localparam L7_NUM = L6_NUM / 3 * 2 + L6_NUM % 3;
 
 //PPGEN
 wire [2*DATA_WIDTH-1:0] pp [PP_NUM];
@@ -61,16 +61,13 @@ wire [2*DATA_WIDTH-1:0] stage2 [0:L2_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage3 [0:L3_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage4 [0:L4_NUM-1];
 wire [2*DATA_WIDTH-1:0] stage5 [0:L5_NUM-1];
-//wire [2*DATA_WIDTH-1:0] stage6 [0:L6_NUM-1];
+wire [2*DATA_WIDTH-1:0] stage6 [0:L6_NUM-1];
+wire [2*DATA_WIDTH-1:0] stage7 [0:L7_NUM-1];
 
 //levle 0
 genvar l0;
 generate
     for(l0=0;l0<L0_NUM;l0=l0+1) begin : NODE0
-        //if(l0==(L0_NUM-1))
-        //    assign stage0[l0] = tail_pp;
-        //else 
-        //    assign stage0[l0] = pp[l0];
         assign stage0[l0] = pp[l0];
     end
 endgenerate
@@ -143,35 +140,52 @@ generate
     end
 endgenerate
             
-////level 5
-//genvar l5;
-//generate
-//    for(l5=0; l5<L4_NUM/3; l5=l5+1) begin : NODE5
-//        csa #(2*DATA_WIDTH) CSA5 (stage4[3*l5], stage4[3*l5+1], stage4[3*l5+2], stage5[2*l5], stage5[2*l5+1]);
-//    end
-//endgenerate
-//
-//generate
-//    if     (L4_NUM%3 == 1) 
-//        assign stage5[2*(L4_NUM/3)] = stage4[3*(L4_NUM/3)];
-//    else if(L4_NUM%3 == 2) begin
-//        assign stage5[2*(L4_NUM/3)  ] = stage4[3*(L4_NUM/3)  ];
-//        assign stage5[2*(L4_NUM/3)+1] = stage4[3*(L4_NUM/3)+1];
-//    end
-//endgenerate
+//level 5
+genvar l5;
+generate
+    for(l5=0; l5<L4_NUM/3; l5=l5+1) begin : NODE5
+        csa #(2*DATA_WIDTH) CSA5 (stage4[3*l5], stage4[3*l5+1], stage4[3*l5+2], stage5[2*l5], stage5[2*l5+1]);
+    end
+endgenerate
+
+generate
+    if     (L4_NUM%3 == 1) 
+        assign stage5[2*(L4_NUM/3)] = stage4[3*(L4_NUM/3)];
+    else if(L4_NUM%3 == 2) begin
+        assign stage5[2*(L4_NUM/3)  ] = stage4[3*(L4_NUM/3)  ];
+        assign stage5[2*(L4_NUM/3)+1] = stage4[3*(L4_NUM/3)+1];
+    end
+endgenerate
+            
+//level 6
+genvar l6;
+generate
+    for(l6=0; l6<L5_NUM/3; l6=l6+1) begin : NODE6
+        csa #(2*DATA_WIDTH) CSA6 (stage5[3*l6], stage5[3*l6+1], stage5[3*l6+2], stage6[2*l6], stage6[2*l6+1]);
+    end
+endgenerate
+
+generate
+    if     (L5_NUM%3 == 1) 
+        assign stage6[2*(L5_NUM/3)] = stage5[3*(L5_NUM/3)];
+    else if(L5_NUM%3 == 2) begin
+        assign stage6[2*(L5_NUM/3)  ] = stage5[3*(L5_NUM/3)  ];
+        assign stage6[2*(L5_NUM/3)+1] = stage5[3*(L5_NUM/3)+1];
+    end
+endgenerate
             
 /* verilator lint_on GENUNNAMED */
             
-//level 5
-csa #(2*DATA_WIDTH) CSA6 (
-    .a    (stage4[0]), 
-    .b    (stage4[1]), 
-    .c    (stage4[2]), 
-    .sum  (stage5[0]), 
-    .carry(stage5[1])
+//level 7
+csa #(2*DATA_WIDTH) CSA7 (
+    .a    (stage6[0]), 
+    .b    (stage6[1]), 
+    .c    (stage6[2]), 
+    .sum  (stage7[0]), 
+    .carry(stage7[1])
 );
 
 //add
-assign result = stage5[0] + stage5[1];
+assign result = stage7[0] + stage7[1];
 
 endmodule

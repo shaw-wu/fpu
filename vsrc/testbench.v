@@ -1,91 +1,8 @@
-//`timescale 1ns/1ps
-//
-//module testbench;
-//    parameter DATA_WIDTH = 32;
-//    //reg clk;
-//    //reg rst;
-//    reg [DATA_WIDTH-1:0] m;
-//    reg [DATA_WIDTH-1:0] r;
-//    wire [2*DATA_WIDTH-1:0] result;
-//
-//    // 实例化你的乘法器
-//    mul #(DATA_WIDTH) uut (
-//        //.clk(clk),
-//        //.rst(rst),
-//        .m(m),
-//        .r(r),
-//        .result(result)
-//    );
-//
-//    // 测试数据存储
-//    reg [DATA_WIDTH-1:0] test_m [0:10000];
-//    reg [DATA_WIDTH-1:0] test_r [0:10000];
-//    reg [2*DATA_WIDTH-1:0] golden_res [0:10000];
-//
-//    integer file;
-//    // 时钟生成
-//    //initial clk = 0;
-//    //always #5 clk = ~clk;
-//
-//    integer i, errors;
-//    initial begin
-//        // 1. 初始化
-//        //rst = 1;
-//        errors = 0;
-//        m = 0;
-//        r = 0;
-//        
-//        // 2. 加载 C 生成的数据
-//        // 注意：数据文件格式需为 $readmemh 可识别的格式，或者用 $fscanf
-//        // 这里演示 $fscanf 动态读取
-//        file = $fopen("vsrc/mul/mul_test_data.tmp", "r");
-//        if (file == 0) begin
-//            $display("Error: Cannot open test data file!");
-//            $finish;
-//        end
-//
-//        for (i = 0; i < 10000; i = i + 1) begin
-//            $fscanf(file, "%h %h %h\n", test_m[i], test_r[i], golden_res[i]);
-//        end
-//        $fclose(file);
-//
-//        //#20 rst = 0;
-//
-//        // 3. 开始测试
-//        $display("--- Starting Multiplier Random Test ---");
-//        for (i = 0; i < 10000; i = i + 1) begin
-//            //@(posedge clk);
-//            m = test_m[i];
-//            r = test_r[i];
-//            #5
-//            
-//            // 如果你的乘法器有流水线延迟（例如 PP_LEVELS=6 对应 6 拍或更多）
-//            // 需要在这里等待相应的节拍数。假设是组合逻辑或 1 拍：
-//            //repeat(1) @(posedge clk); 
-//            
-//            if (result !== golden_res[i]) begin
-//                $display("Error at Sample %d: m=%h, r=%h | Got %h, Expected %h", 
-//                          i, m, r, result, golden_res[i]);
-//                errors = errors + 1;
-//            end
-//        end
-//
-//        // 4. 结果统计
-//        if (errors == 0)
-//            $display("--- PASSED: All 10000 cases correct! ---");
-//        else
-//            $display("--- FAILED: Found %d errors ---", errors);
-//
-//        $finish;
-//    end
-//
-//
-//endmodule
 `timescale 1ns/1ps
 
 module testbench;
 
-parameter FDATA_WIDTH = 32;
+parameter FDATA_WIDTH = 64;
 parameter CLK_PERIOD  = 10;
 parameter MAX_VEC     = 10000000;
 
@@ -110,6 +27,7 @@ wire [FDATA_WIDTH-1:0] fresult;
 // ======== queue 保存期望结果 ========
 reg [FDATA_WIDTH-1:0] exp_res_q   [0:MAX_VEC-1];
 reg [4:0]             exp_flag_q  [0:MAX_VEC-1];
+reg [4:0]             exp_sel_q  [0:MAX_VEC-1];
 
 integer head = 0;
 integer tail = 0;
@@ -141,7 +59,7 @@ fpu #(
     .frm(frm),
     .fina(fina),
     .finb(finb),
-    .ina(fina),
+    .ina(fina[31:0]),
     .o_valid(o_valid),
     .o_ready(o_ready),
     .fflags(fflags),
@@ -197,6 +115,7 @@ initial begin
                 // push queue
                 exp_res_q[tail]  = exp_res;
                 exp_flag_q[tail] = exp_flag;
+                exp_sel_q[tail] = sel;
                 tail = tail + 1;
                 vector_cnt = vector_cnt + 1;
 
@@ -235,8 +154,8 @@ initial begin
                 //          exp_res_q[head], exp_flag_q[head]);
 
                 $fdisplay(file_log,
-                          "[ERR] id=%0d got=%h %b exp=%h %b",
-                          head,
+                          "[ERR] id=%0d sel=%h got=%h %b exp=%h %b",
+                          head, exp_sel_q[head],
                           fresult, fflags,
                           exp_res_q[head], exp_flag_q[head]);
 

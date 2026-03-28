@@ -1,14 +1,16 @@
 module fpu #(
-	parameter FDATA_BITS  = 32            ,
-//	parameter DDATA_BITS  = 64            ,
-	parameter FDATA_SIZE  = 5             ,
-	parameter DATA_WIDTH  = 32            ,
-	parameter FRA_BITS    = 23            ,
-	parameter EXP_BITS    = 8             ,
-	parameter SIG_BITS    = 32            ,
-	parameter SIG_SIZE    = 5             ,
-	parameter FRM_BITS    = 3             ,
-    parameter EXP_OFFSET  = 9'b0_1000_0001
+	parameter FDATA_BITS   = 64                 ,
+//	parameter DDATA_BITS   = 64                 ,
+	parameter FDATA_SIZE   = 6                  ,
+	parameter DATA_WIDTH   = 32                 ,
+	parameter DATA_SIZE    = 5                  ,
+	parameter FRA_BITS     = 52                 ,
+	parameter EXP_BITS     = 11                 ,
+	parameter SIG_BITS     = 53                 ,
+	parameter SIG_SIZE     = 6                  ,
+	parameter FRM_BITS     = 3                  ,
+    //parameter EXP_OFFSET_S = 12'b0_1000_0001   ,
+    parameter EXP_OFFSET_D = 12'b0_100_0000_0001
 )(
 	input clk,
 	input rst,
@@ -27,11 +29,9 @@ module fpu #(
 );
 
 assign i_ready = s0_ready;
-//localparam QNAN_S = 32'h7FC00000;
 reg [5:0] cntTrans0_add; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 reg [5:0] cntTrans0_mul; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 reg [5:0] cntTrans1; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
-//reg [5:0] cntTrans2; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 wire isTrans0 = isTrans0_add || isTrans0_mul;
 wire isTrans0_add = pre_fadd_s || pre_fsub_s;
 wire isTrans0_mul = pre_fmul_s;
@@ -169,7 +169,7 @@ end
 
 assign s0_valid = ((s0_current_state == S0_WAIT_MUL) && s1_ready) || ((s0_current_state == S0_WAIT_ADD) && s1_ready) ||
                    (s0_current_state == S0_WAIT2) || (s0_current_state == S0_WAIT1); 
-assign s0_ready = ( (s0_current_state == S0_IDLE    ) && ((isTrans2 && !haveTrans0 && !haveTrans1) || (isTrans0_add && !haveTrans0_mul) || (isTrans0_mul && !haveTrans0_add)) ) ||
+assign s0_ready = ( (s0_current_state == S0_IDLE    ) && ((!haveTrans0 && !haveTrans1) || (isTrans0_add && !haveTrans0_mul) || (isTrans0_mul && !haveTrans0_add)) ) ||
                   ( (s0_current_state == S0_WAIT2   ) && o_ready                                                 ) || 
                   ( (s0_current_state == S0_WAIT1   ) && s1_ready   && !isTrans2                                 ) ||
                   ( (s0_current_state == S0_WAIT_ADD) && s1_ready   && add_iready && !isTrans2 && !isTrans0_mul  ) ||
@@ -213,13 +213,13 @@ wire isINf_b ;
 wire isZero_b;
 
 torecFN #(
-    .FP_BITS    (FDATA_BITS ),
-    .FP_LOG     (FDATA_SIZE ),
-    .EXP_BITS   (EXP_BITS   ),
-    .FRA_BITS   (FRA_BITS   ),
-    .SIG_BITS   (SIG_BITS   ),
-    .RECEXP_BITS(EXP_BITS+1 ),
-    .EXP_OFFSET (EXP_OFFSET )
+    .FP_BITS    (FDATA_BITS  ),
+    .FP_LOG     (FDATA_SIZE  ),
+    .EXP_BITS   (EXP_BITS    ),
+    .FRA_BITS   (FRA_BITS    ),
+    .SIG_BITS   (SIG_BITS    ),
+    .RECEXP_BITS(EXP_BITS+1  ),
+    .EXP_OFFSET (EXP_OFFSET_D)
 ) torecFN_a (
 	.fp          (s0_fina       ), 
 	.sign        (sign_a        ),
@@ -234,13 +234,13 @@ torecFN #(
 );
 
 torecFN #(
-    .FP_BITS    (FDATA_BITS ),
-    .FP_LOG     (FDATA_SIZE ),
-    .EXP_BITS   (EXP_BITS   ),
-    .FRA_BITS   (FRA_BITS   ),
-    .SIG_BITS   (SIG_BITS   ),
-    .RECEXP_BITS(EXP_BITS+1 ),
-    .EXP_OFFSET (EXP_OFFSET )
+    .FP_BITS    (FDATA_BITS  ),
+    .FP_LOG     (FDATA_SIZE  ),
+    .EXP_BITS   (EXP_BITS    ),
+    .FRA_BITS   (FRA_BITS    ),
+    .SIG_BITS   (SIG_BITS    ),
+    .RECEXP_BITS(EXP_BITS+1  ),
+    .EXP_OFFSET (EXP_OFFSET_D)
 ) torecFN_b (
 	.fp          (s0_finb       ), 
 	.sign        (sign_b        ),
@@ -280,7 +280,7 @@ fadd #(
     .FLA_BITS(5         ),
     .SIG_BITS(SIG_BITS  ),
     .SIG_SIZE(SIG_SIZE  ),
-    .FRA_BITS(FRA_BITS+1),
+//    .FRA_BITS(FRA_BITS+1),
     .EXP_BITS(EXP_BITS+1)
 ) FADD (
 	.aclk			        (clk		   ),
@@ -343,9 +343,8 @@ fmul #(
     .DATA_WIDTH(FDATA_BITS),
     .FRM_BITS(FRM_BITS  ),
     .FLA_BITS(5         ),
-    .SIG_BITS(FRA_BITS+1),
+    .SIG_BITS(SIG_BITS  ),
 //    .SIG_SIZE(SIG_SIZE  ),
-    .FRA_BITS(FRA_BITS+1),
     .EXP_BITS(EXP_BITS+1)
 ) FMUL (
 	.aclk			        (clk		   ),
@@ -357,7 +356,7 @@ fmul #(
 	.s_axis_a_tready        (mul_iready_a  ),
 
 	.s_axis_a_sign          (sign_a        ),
-	.s_axis_a_sig           (sig_a[SIG_BITS-1-:FRA_BITS+1]),
+	.s_axis_a_sig           (sig_a         ),
 	.s_axis_a_exp           (exp_a         ),
 	.s_axis_a_isQNAN        (isQNAN_a      ),
 	.s_axis_a_isSNAN        (isSNAN_a      ),
@@ -368,7 +367,7 @@ fmul #(
 	.s_axis_b_tready        (mul_iready_b  ),
 
 	.s_axis_b_sign          (sign_b        ),
-	.s_axis_b_sig           (sig_b[SIG_BITS-1-:FRA_BITS+1]),
+	.s_axis_b_sig           (sig_b         ),
 	.s_axis_b_exp           (exp_b         ),
 	.s_axis_b_isQNAN        (isQNAN_b      ),
 	.s_axis_b_isSNAN        (isSNAN_b      ),
@@ -569,7 +568,7 @@ always @(posedge clk or posedge rst) begin
             is_add_sub        <= 0;
             is_mul            <= 1;
             s4_mul_res_sign   <= mul_res_sign  ;
-            s4_mul_res_sig    <= {mul_res_sig, {(SIG_BITS-FRA_BITS-1){1'b0}}};
+            s4_mul_res_sig    <= mul_res_sig   ;
             s4_mul_res_exp    <= mul_res_exp   ;
             s4_mul_res_fflags <= mul_res_fflags;
         end
@@ -592,12 +591,12 @@ wire [SIG_BITS  -1:0] sig_res   = is_add_sub ? s4_add_res_sig  :
 //tostdFN
 wire [FDATA_BITS-1:0] fpu_result;
 tostdFN#(
-    .FP_BITS    (FDATA_BITS ),
-    .EXP_BITS   (EXP_BITS   ),
-    .FRA_BITS   (FRA_BITS   ),
-    .SIG_BITS   (SIG_BITS   ),
-    .RECEXP_BITS(EXP_BITS+1 ),
-    .EXP_OFFSET (EXP_OFFSET )
+    .FP_BITS    (FDATA_BITS  ),
+    .EXP_BITS   (EXP_BITS    ),
+    .FRA_BITS   (FRA_BITS    ),
+    .SIG_BITS   (SIG_BITS    ),
+    .RECEXP_BITS(EXP_BITS+1  ),
+    .EXP_OFFSET (EXP_OFFSET_D)
 ) tostdFN (
 	.sign       (sign_res       ),
 	.exp		(exp_res	    ),
@@ -617,7 +616,8 @@ wire [FDATA_BITS-1:0] fcxs_fresult;
 wire cvt_wf_nx;
 cvt_wf #(
 	.DATA_BITS (DATA_WIDTH),
-	.SIG_BITS  (FRA_BITS+1),
+	.DATA_SIZE (DATA_SIZE ),
+	.SIG_BITS  (SIG_BITS  ),
 	.EXP_BITS  (EXP_BITS  )
 ) cvt_s_x(
 	.u_i   (fcvt_s_wu),
@@ -697,20 +697,20 @@ wire fcvt_w_s_valid  = s1_valid && s1_fcvt_w_s ;
 //wire net_op = s0_ready;
 
 //fresult
-assign fresult = fadd_s_valid || fsub_s_valid || fmul_s_valid ? fpu_result     :
-                 feq_s                                        ? feq_fresult    :
-                 flt_s                                        ? flt_fresult    :
-                 fle_s                                        ? fle_fresult    : 
-                 fsgnj_s                                      ? fsgnj_fresult  : 
-                 fsgnjx_s                                     ? fsgnjx_fresult : 
-                 fsgnjn_s                                     ? fsgnjn_fresult : 
-                 fcvt_w_s_valid                               ? fcss_fresult   :
-                 fcvt_wu_s_valid                              ? fcsu_fresult   :
-                 fcvt_s_w                                     ? fcxs_fresult   :
-                 fcvt_s_wu                                    ? fcxs_fresult   :
-                 fclass_s                                     ? fclass_fresult : 
-                 fmin_s                                       ? fmin_fresult   :
-                 fmax_s                                       ? fmax_fresult   : 0;
+assign fresult = fadd_s_valid || fsub_s_valid || fmul_s_valid ? fpu_result            :
+                 feq_s                                        ? feq_fresult           :
+                 flt_s                                        ? flt_fresult           :
+                 fle_s                                        ? fle_fresult           : 
+                 fsgnj_s                                      ? fsgnj_fresult         : 
+                 fsgnjx_s                                     ? fsgnjx_fresult        : 
+                 fsgnjn_s                                     ? fsgnjn_fresult        : 
+                 fcvt_w_s_valid                               ? {32'b0, fcss_fresult} :
+                 fcvt_wu_s_valid                              ? {32'b0, fcsu_fresult} :
+                 fcvt_s_w                                     ? fcxs_fresult          :
+                 fcvt_s_wu                                    ? fcxs_fresult          :
+                 fclass_s                                     ? fclass_fresult        : 
+                 fmin_s                                       ? fmin_fresult          :
+                 fmax_s                                       ? fmax_fresult          : 0;
 
 assign fflags = fadd_s_valid || fsub_s_valid                ? s4_add_res_fflags :
                 fmul_s_valid                                ? s4_mul_res_fflags :

@@ -62,7 +62,8 @@ wire [DATA_BITS-1:0] of_wres  = sign ? {1'b1, {DATA_BITS-1{1'b0}}} : {1'b0, {DAT
 assign wu_res = isnan ? {DATA_BITS{1'b1}} :
                 sign  ? 0                 : 
                 of    ? {DATA_BITS{1'b1}} : sigres ;
-assign w_res  = of ? of_wres           : comp_res;
+assign w_res  = isnan ? {DATA_BITS{1'b1}} :
+                of    ? of_wres           : comp_res;
 
 assign nv = isnan || isinf || of || (u_i && sign);
 assign nx = !nv && (guardBit || roundBit || stickyBit);

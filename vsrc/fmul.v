@@ -1,11 +1,10 @@
 module fmul #(
-    parameter DATA_WIDTH = 32,
+    parameter DATA_WIDTH = 64,
     parameter FRM_BITS   = 3 ,
     parameter FLA_BITS   = 5 ,
-    parameter SIG_BITS   = 24,
+    parameter SIG_BITS   = 53,
 //    parameter SIG_SIZE   = 5 ,
-    parameter FRA_BITS   = 24,
-    parameter EXP_BITS   = 9
+    parameter EXP_BITS   = 12 
 )(
 /*verilator lint_off UNUSED*/
 	input                 aclk			 ,
@@ -45,7 +44,9 @@ module fmul #(
     //output                m_axis_res_isINf ,
     output [FLA_BITS-1:0] m_axis_res_fflags
 );
-localparam QNAN = 32'h7fc00000;
+//localparam QNAN_S = 64'h7fc00000;
+localparam QNAN_D = 64'h7ff80000_00000000;
+
 wire i_valid = s_axis_a_tvalid && s_axis_b_tvalid;
 wire o_ready = m_axis_res_tready;
 assign s_axis_a_tready   = s1_ready;
@@ -178,6 +179,9 @@ wire [2*SIG_BITS-1:0] sig_res = compl_sig_res[2*SIG_BITS-1:0];
 wire                  carry = sig_res[2*SIG_BITS-1];
 wire [2*SIG_BITS-1:0] s_sig_res  = carry ? sig_res : sig_res << 1;
 wire                  s_sign_res = sign_a ^ sign_b;
+wire                  guardBit   =  s_sig_res[SIG_BITS-1  ];
+wire                  roundBit   =  s_sig_res[SIG_BITS-2  ];
+wire                  stickyBit  = |s_sig_res[SIG_BITS-3:0];
 /* verilator lint_off WIDTHEXPAND */
 wire [EXP_BITS-1:0] exp_res = compl_add_exp + carry;
 wire res_over = !compl_add_exp[EXP_BITS-1] && exp_res[EXP_BITS-1];
@@ -188,38 +192,39 @@ wire [EXP_BITS-1:0] s_exp_res = neg_overflow             ? 0                    
 
 //round
 wire underUnormal;
-wire [2*SIG_BITS-1:0] r_sig ;
-wire [EXP_BITS  -1:0] r_exp ;
-wire                  r_sign;
-wire [FLA_BITS  -1:0] fflags;
+wire [SIG_BITS-1:0] r_sig ;
+wire [EXP_BITS-1:0] r_exp ;
+wire                r_sign;
+wire [FLA_BITS-1:0] fflags;
 
 round #(
-    .SIG_BITS(2*SIG_BITS),
-    .EXP_BITS(EXP_BITS  ),
-    .FRA_BITS(FRA_BITS  )
+    .SIG_BITS(SIG_BITS),
+    .EXP_BITS(EXP_BITS)
 ) ROUND (
-	.sig         (s_sig_res   ),
-	.exp         (s_exp_res   ),
-	.sign        (s_sign_res  ),
-	.Insticky    (1'b0        ),
-	.nv          (1'b0        ),
-	.dz          (1'b0        ),
-	.frm         (frm         ),
-	.fflags      (fflags      ),
-	.underUnormal(underUnormal),
-	.o_sig       (r_sig       ),
-	.o_exp       (r_exp       ),
-    .o_sign      (r_sign      )
+	.sig         (s_sig_res[2*SIG_BITS-1:SIG_BITS]),
+	.exp         (s_exp_res                       ),
+	.sign        (s_sign_res                      ),
+	.Inguard     (guardBit                        ),
+	.Inround     (roundBit                        ),
+	.Insticky    (stickyBit                       ),
+	.nv          (1'b0                            ),
+	.dz          (1'b0                            ),
+	.frm         (frm                             ),
+	.fflags      (fflags                          ),
+	.underUnormal(underUnormal                    ),
+	.o_sig       (r_sig                           ),
+	.o_exp       (r_exp                           ),
+    .o_sign      (r_sign                          )
 );
 
-wire [SIG_BITS-1:0] o_sig  = underUnormal ? 0 : r_sig[2*SIG_BITS-1:SIG_BITS];
-wire [EXP_BITS-1:0] o_exp  = underUnormal ? 0 : r_exp ;
+wire [SIG_BITS-1:0] o_sig  = underUnormal ? 0 : r_sig;
+wire [EXP_BITS-1:0] o_exp  = underUnormal ? 0 : r_exp;
 wire                o_sign = r_sign;
 
 //inf 
-wire                INf_sign_res = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? QNAN[DATA_WIDTH-1] : sign_a ^ sign_b;//Inf Inf
-wire [EXP_BITS-1:0] INf_exp_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN[FRA_BITS-1+:EXP_BITS-1]} : {3'b110, {(EXP_BITS-3){1'b0}}};
-wire [SIG_BITS-1:0] INf_sig_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN[FRA_BITS-2 :         0]} : 0                             ;
+wire                INf_sign_res = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? QNAN_D[DATA_WIDTH-1] : sign_a ^ sign_b;//Inf Inf
+wire [EXP_BITS-1:0] INf_exp_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN_D[SIG_BITS-1+:EXP_BITS-1]} : {3'b110, {(EXP_BITS-3){1'b0}}};
+wire [SIG_BITS-1:0] INf_sig_res  = (isZero_a && isINf_b) || (isZero_b && isINf_a) ? {1'b1, QNAN_D[SIG_BITS-2 :         0]} : 0                             ;
 
 //zero
 
