@@ -33,9 +33,9 @@ reg [5:0] cntTrans0_add; //pipeline transactions counter : highest priority 0 --
 reg [5:0] cntTrans0_mul; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 reg [5:0] cntTrans1; //pipeline transactions counter : highest priority 0 -- medium priority 1 -- lowest priority 2
 wire isTrans0 = isTrans0_add || isTrans0_mul;
-wire isTrans0_add = pre_fadd_s || pre_fsub_s;
-wire isTrans0_mul = pre_fmul_s;
-wire isTrans1 = pre_fcvt_wu_s || pre_fcvt_w_s;
+wire isTrans0_add = pre_fadd_d || pre_fsub_d;
+wire isTrans0_mul = pre_fmul_d;
+wire isTrans1 = pre_fcvt_wu_d || pre_fcvt_w_d;
 wire isTrans2 = !isTrans0 && !isTrans1;
 
 wire haveTrans0 = haveTrans0_add || haveTrans0_mul;
@@ -44,12 +44,12 @@ wire haveTrans0_mul = cntTrans0_mul != 0;
 wire haveTrans1 = cntTrans1 != 0;
 //wire haveTrans2 = cntTrans2 != 0;
 
-wire pre_fadd_s = sel == 'd0 ;
-wire pre_fsub_s = sel == 'd1 ;
-wire pre_fmul_s = sel == 'd2 ;
-//wire pre_fdiv_s = sel == 'd3 ;
-wire pre_fcvt_w_s  = sel == 'd10;
-wire pre_fcvt_wu_s = sel == 'd11;
+wire pre_fadd_d = sel == 'd0 ;
+wire pre_fsub_d = sel == 'd1 ;
+wire pre_fmul_d = sel == 'd2 ;
+//wire pre_fdiv_d = sel == 'd3 ;
+wire pre_fcvt_w_d  = sel == 'd10;
+wire pre_fcvt_wu_d = sel == 'd11;
 
 /*========  stage 0 ========*/
 reg [FDATA_BITS-1:0] s0_fina;
@@ -175,23 +175,23 @@ assign s0_ready = ( (s0_current_state == S0_IDLE    ) && ((!haveTrans0 && !haveT
                   ( (s0_current_state == S0_WAIT_ADD) && s1_ready   && add_iready && !isTrans2 && !isTrans0_mul  ) ||
                   ( (s0_current_state == S0_WAIT_MUL) && s1_ready   && mul_iready && !isTrans2 && !isTrans0_add  ); 
 
-wire fadd_s = s0_sel == 'd0 ;
-wire fsub_s = s0_sel == 'd1 ;
-wire fmul_s = s0_sel == 'd2 ;
-//wire fdiv_s = s0_sel == 'd3 ;
-wire feq_s  = s0_sel == 'd4 ;
-wire flt_s  = s0_sel == 'd5 ;
-wire fle_s  = s0_sel == 'd6 ;
-wire fsgnj_s   = s0_sel == 'd7 ;
-wire fsgnjn_s  = s0_sel == 'd8 ;
-wire fsgnjx_s  = s0_sel == 'd9 ;
-wire fcvt_w_s  = s0_sel == 'd10;
-wire fcvt_wu_s = s0_sel == 'd11;
-wire fcvt_s_w  = s0_sel == 'd12;
-wire fcvt_s_wu = s0_sel == 'd13;
-wire fclass_s  = s0_sel == 'd14;
-wire fmin_s    = s0_sel == 'd15;
-wire fmax_s    = s0_sel == 'd16;
+wire fadd_d = s0_sel == 'd0 ;
+wire fsub_d = s0_sel == 'd1 ;
+wire fmul_d = s0_sel == 'd2 ;
+//wire fdiv_d = s0_sel == 'd3 ;
+wire feq_d  = s0_sel == 'd4 ;
+wire flt_d  = s0_sel == 'd5 ;
+wire fle_d  = s0_sel == 'd6 ;
+wire fsgnj_d   = s0_sel == 'd7 ;
+wire fsgnjn_d  = s0_sel == 'd8 ;
+wire fsgnjx_d  = s0_sel == 'd9 ;
+wire fcvt_w_d  = s0_sel == 'd10;
+wire fcvt_wu_d = s0_sel == 'd11;
+wire fcvt_d_w  = s0_sel == 'd12;
+wire fcvt_d_wu = s0_sel == 'd13;
+wire fclass_d  = s0_sel == 'd14;
+wire fmin_d    = s0_sel == 'd15;
+wire fmax_d    = s0_sel == 'd16;
 
 //torecFN
 wire sign_a;
@@ -258,9 +258,9 @@ torecFN #(
 
 /*======== stage 1~3 ========*/
 //fadd / sign
-wire add_sub_sel = fsub_s;
+wire add_sub_sel = fsub_d;
 
-wire add_ivalid = s0_valid && (fadd_s || fsub_s);
+wire add_ivalid = s0_valid && (fadd_d || fsub_d);
 wire add_iready = add_iready_a && add_iready_b;
 wire add_iready_a;
 wire add_iready_b;
@@ -324,7 +324,7 @@ fadd #(
 );
 
 //fmul 
-wire mul_ivalid = s0_valid && fmul_s;
+wire mul_ivalid = s0_valid && fmul_d;
 wire mul_iready = mul_iready_a && mul_iready_b;
 wire mul_iready_a;
 wire mul_iready_b;
@@ -403,8 +403,8 @@ reg s1_isINf_a ;
 //reg s1_isINf_b ;
 //reg s1_isZero_b;
 
-reg s1_fcvt_w_s ;
-reg s1_fcvt_wu_s;
+reg s1_fcvt_w_d ;
+reg s1_fcvt_wu_d;
 
 wire s1_valid;
 wire s1_ready;
@@ -417,11 +417,11 @@ reg [1:0] s1_current_state, s1_next_state;
 always @(*) begin
 	case(s1_current_state)
 		S1_IDLE : begin
-			if  (s0_valid && (fcvt_wu_s || fcvt_w_s)) s1_next_state = S1_WAIT;
+			if  (s0_valid && (fcvt_wu_d || fcvt_w_d)) s1_next_state = S1_WAIT;
 			else									  s1_next_state = S1_IDLE;
 		end
 		S1_WAIT : begin
-			if     (s0_valid && o_ready && s1_valid && (fcvt_wu_s || fcvt_w_s)) s1_next_state = S1_WAIT;
+			if     (s0_valid && o_ready && s1_valid && (fcvt_wu_d || fcvt_w_d)) s1_next_state = S1_WAIT;
 			else if(o_ready  && s1_valid                                      ) s1_next_state = S1_IDLE;
 			else	                                                            s1_next_state = S1_WAIT;
 		end
@@ -451,8 +451,8 @@ always @(posedge clk or posedge rst) begin
         //s1_isINf_b        <= 0;
         //s1_isZero_b       <= 0;
 
-        s1_fcvt_w_s  <= 0;
-        s1_fcvt_wu_s <= 0;
+        s1_fcvt_w_d  <= 0;
+        s1_fcvt_wu_d <= 0;
 
 		s1_current_state <= S1_IDLE;
 	end else begin
@@ -478,8 +478,8 @@ always @(posedge clk or posedge rst) begin
             //s1_isINf_b        <= isINf_b       ;
             //s1_isZero_b       <= isZero_b      ;
 
-            s1_fcvt_w_s  <= fcvt_w_s ;
-            s1_fcvt_wu_s <= fcvt_wu_s;
+            s1_fcvt_w_d  <= fcvt_w_d ;
+            s1_fcvt_wu_d <= fcvt_wu_d;
         end
 	end
 end
@@ -487,7 +487,7 @@ end
 assign s1_valid = (s1_current_state == S1_WAIT) && !haveTrans0; 
 assign s1_ready = (s1_current_state == S1_IDLE) || (s1_valid && o_ready); 
 
-//fcvt_w_s and fcvt_wu_s
+//fcvt_w_d and fcvt_wu_d
 wire [DATA_WIDTH-1:0] fcss_fresult;
 wire [DATA_WIDTH-1:0] fcsu_fresult;
 wire cvt_fw_nv;
@@ -497,7 +497,7 @@ cvt_fw #(
 	.SIG_BITS (SIG_BITS  ),
 	.EXP_BITS (EXP_BITS+1)
 ) cvt_x_s(
-	.u_i   (s1_fcvt_wu_s	          ),
+	.u_i   (s1_fcvt_wu_d	          ),
 	.sign  (s1_sign_a                 ),
 	.exp   (s1_exp_a                  ),
 	.sig   (s1_sig_a                  ),
@@ -509,7 +509,7 @@ cvt_fw #(
 	.nv	   (cvt_fw_nv	              ),
 	.nx	   (cvt_fw_nx	              )
 );
-wire [4:0] fcvt_w_s_fflags = {cvt_fw_nv, 1'b0, 1'b0, 1'b0, cvt_fw_nx};
+wire [4:0] fcvt_w_d_fflags = {cvt_fw_nv, 1'b0, 1'b0, 1'b0, cvt_fw_nx};
 
 //================= stage 5 ============
 reg                is_add_sub;
@@ -606,7 +606,7 @@ tostdFN#(
 	.fp         (fpu_result     )
 );
 
-//fcvt_s_w and fcvt_s_wu
+//fcvt_d_w and fcvt_d_wu
 wire                  fcxs_sign   ;
 wire [EXP_BITS  -1:0] fcxs_exp    ;
 /* verilator lint_off UNUSED */
@@ -620,7 +620,7 @@ cvt_wf #(
 	.SIG_BITS  (SIG_BITS  ),
 	.EXP_BITS  (EXP_BITS  )
 ) cvt_s_x(
-	.u_i   (fcvt_s_wu),
+	.u_i   (fcvt_d_wu),
 	.xdata (s0_ina   ),
 	.frm   (s0_frm   ),
 	.sign  (fcxs_sign),
@@ -629,7 +629,7 @@ cvt_wf #(
 	.nx    (cvt_wf_nx)
 );
 assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[FRA_BITS-1:0]};
-wire [4:0] fcvt_s_w_fflags = {4'b0, cvt_wf_nx};
+wire [4:0] fcvt_d_w_fflags = {4'b0, cvt_wf_nx};
 
 //fclass.s
 wire [FDATA_BITS-1:0] fclass_fresult = isINf_a        &&  sign_a ? 0 :
@@ -689,39 +689,39 @@ wire [FDATA_BITS-1:0] fsgnjn_fresult = {!st_sign_b, st_exp_a, st_fra_a}; //fsgnj
 //fsgnjx
 wire [FDATA_BITS-1:0] fsgnjx_fresult = {st_sign_a ^ st_sign_b, st_exp_a, st_fra_a}; //fsgnjx_fflags = 0;
 
-wire fadd_s_valid = s4_valid && is_add_sub;
-wire fsub_s_valid = s4_valid && is_add_sub;
-wire fmul_s_valid = s4_valid && is_mul;
-wire fcvt_wu_s_valid = s1_valid && s1_fcvt_wu_s;
-wire fcvt_w_s_valid  = s1_valid && s1_fcvt_w_s ;
+wire fadd_d_valid = s4_valid && is_add_sub;
+wire fsub_d_valid = s4_valid && is_add_sub;
+wire fmul_d_valid = s4_valid && is_mul;
+wire fcvt_wu_d_valid = s1_valid && s1_fcvt_wu_d;
+wire fcvt_w_d_valid  = s1_valid && s1_fcvt_w_d ;
 //wire net_op = s0_ready;
 
 //fresult
-assign fresult = fadd_s_valid || fsub_s_valid || fmul_s_valid ? fpu_result            :
-                 feq_s                                        ? feq_fresult           :
-                 flt_s                                        ? flt_fresult           :
-                 fle_s                                        ? fle_fresult           : 
-                 fsgnj_s                                      ? fsgnj_fresult         : 
-                 fsgnjx_s                                     ? fsgnjx_fresult        : 
-                 fsgnjn_s                                     ? fsgnjn_fresult        : 
-                 fcvt_w_s_valid                               ? {32'b0, fcss_fresult} :
-                 fcvt_wu_s_valid                              ? {32'b0, fcsu_fresult} :
-                 fcvt_s_w                                     ? fcxs_fresult          :
-                 fcvt_s_wu                                    ? fcxs_fresult          :
-                 fclass_s                                     ? fclass_fresult        : 
-                 fmin_s                                       ? fmin_fresult          :
-                 fmax_s                                       ? fmax_fresult          : 0;
+assign fresult = fadd_d_valid || fsub_d_valid || fmul_d_valid ? fpu_result            :
+                 feq_d                                        ? feq_fresult           :
+                 flt_d                                        ? flt_fresult           :
+                 fle_d                                        ? fle_fresult           : 
+                 fsgnj_d                                      ? fsgnj_fresult         : 
+                 fsgnjx_d                                     ? fsgnjx_fresult        : 
+                 fsgnjn_d                                     ? fsgnjn_fresult        : 
+                 fcvt_w_d_valid                               ? {32'b0, fcss_fresult} :
+                 fcvt_wu_d_valid                              ? {32'b0, fcsu_fresult} :
+                 fcvt_d_w                                     ? fcxs_fresult          :
+                 fcvt_d_wu                                    ? fcxs_fresult          :
+                 fclass_d                                     ? fclass_fresult        : 
+                 fmin_d                                       ? fmin_fresult          :
+                 fmax_d                                       ? fmax_fresult          : 0;
 
-assign fflags = fadd_s_valid || fsub_s_valid                ? s4_add_res_fflags :
-                fmul_s_valid                                ? s4_mul_res_fflags :
-                fsgnj_s || fsgnjn_s || fsgnjx_s || fclass_s ? 5'b0              :
-                feq_s                                       ? feq_fflags        :
-                flt_s                                       ? flt_fflags        :
-                fle_s                                       ? fle_fflags        : 
-                fcvt_w_s_valid || fcvt_wu_s_valid           ? fcvt_w_s_fflags   :
-                fcvt_s_w || fcvt_s_wu                       ? fcvt_s_w_fflags   :
-                fmin_s                                      ? fmin_fflags       :
-                fmax_s                                      ? fmax_fflags       : 5'b0;
+assign fflags = fadd_d_valid || fsub_d_valid                ? s4_add_res_fflags :
+                fmul_d_valid                                ? s4_mul_res_fflags :
+                fsgnj_d || fsgnjn_d || fsgnjx_d || fclass_d ? 5'b0              :
+                feq_d                                       ? feq_fflags        :
+                flt_d                                       ? flt_fflags        :
+                fle_d                                       ? fle_fflags        : 
+                fcvt_w_d_valid || fcvt_wu_d_valid           ? fcvt_w_d_fflags   :
+                fcvt_d_w || fcvt_d_wu                       ? fcvt_d_w_fflags   :
+                fmin_d                                      ? fmin_fflags       :
+                fmax_d                                      ? fmax_fflags       : 5'b0;
 
 assign o_valid = (s0_current_state == S0_WAIT2) || s1_valid || s4_valid;
 
