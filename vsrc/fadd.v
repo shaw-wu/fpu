@@ -172,37 +172,15 @@ wire [SIG_BITS-1:0] stickymask = sig_amt >= 3 ? ~({SIG_BITS{1'b1}} << (sig_amt-2
 wire [SIG_BITS-1:0] sigShift_a =  comp_exp_ab ? s1_sig_a >> sig_amt : s1_sig_a;
 wire [SIG_BITS-1:0] sigShift_b = !comp_exp_ab ? s1_sig_b >> sig_amt : s1_sig_b;
 
-wire guard_a  = |(guardmask  & s1_sig_a);
-wire guard_b  = |(guardmask  & s1_sig_b);
-wire round_a  = |(roundmask  & s1_sig_a);
-wire round_b  = |(roundmask  & s1_sig_b);
-wire sticky_a = |(stickymask & s1_sig_a);
-wire sticky_b = |(stickymask & s1_sig_b);
-
-wire guardBit  = comp_exp_ab ? guard_a  : guard_b ; 
-wire roundBit  = comp_exp_ab ? round_a  : round_b ; 
-wire stickyBit = comp_exp_ab ? sticky_a : sticky_b; 
-
-wire stickyBits_a = guard_a || round_a || sticky_a;
-wire stickyBits_b = guard_b || round_b || sticky_b;
-//sig origin add/sub(53 bits)
-
-wire                sel_sign_b   = s1_sign_b ^ is_sub;
-wire                is_effsub    = sel_sign_b ^ s1_sign_a;
-wire                comp_op      = sigShift_a > sigShift_b;
-
 /*======== stage 2 ========*/
 reg                s2_comp_exp_ab ;
-reg                s2_stickyBits_a;
-reg                s2_stickyBits_b;
-reg                s2_guardBit    ; 
-reg                s2_roundBit    ; 
-reg                s2_stickyBit   ; 
+reg [SIG_BITS-1:0] s2_guardmask   ;
+reg [SIG_BITS-1:0] s2_roundmask   ;
+reg [SIG_BITS-1:0] s2_stickymask  ;
 reg [SIG_BITS-1:0] s2_sigShift_a  ;
 reg [SIG_BITS-1:0] s2_sigShift_b  ;
-reg                s2_sel_sign_b  ;
-reg                s2_is_effsub   ;
-reg                s2_comp_op     ;
+
+reg                s2_is_sub;
 
 reg [FRM_BITS-1:0] s2_frm     ;
 
@@ -250,16 +228,13 @@ always @(posedge aclk, posedge areset) begin
         s2_current_state <= S2_IDLE;
 
         s2_comp_exp_ab  <= 0;
-        s2_stickyBits_a <= 0;
-        s2_stickyBits_b <= 0;
-        s2_guardBit     <= 0; 
-        s2_roundBit     <= 0; 
-        s2_stickyBit    <= 0; 
+        s2_guardmask    <= 0;
+        s2_roundmask    <= 0;
+        s2_stickymask   <= 0;
         s2_sigShift_a   <= 0;
         s2_sigShift_b   <= 0;
-        s2_sel_sign_b   <= 0;
-        s2_is_effsub    <= 0;
-        s2_comp_op      <= 0;
+
+        s2_is_sub   <= 0;
 
         s2_frm      <= 0;
 
@@ -282,16 +257,13 @@ always @(posedge aclk, posedge areset) begin
         s2_current_state <= s2_next_state;
         if(s1_valid && s2_ready) begin
             s2_comp_exp_ab  <= comp_exp_ab ;
-            s2_stickyBits_a <= stickyBits_a;
-            s2_stickyBits_b <= stickyBits_b;
-            s2_guardBit     <= guardBit    ; 
-            s2_roundBit     <= roundBit    ; 
-            s2_stickyBit    <= stickyBit   ; 
+            s2_guardmask    <= guardmask   ;
+            s2_roundmask    <= roundmask   ;
+            s2_stickymask   <= stickymask  ;
             s2_sigShift_a   <= sigShift_a  ;
             s2_sigShift_b   <= sigShift_b  ;
-            s2_sel_sign_b   <= sel_sign_b  ;
-            s2_is_effsub    <= is_effsub   ;
-            s2_comp_op      <= comp_op     ;
+
+            s2_is_sub   <= is_sub     ;
 
             s2_frm      <= s1_frm     ;
                                       
@@ -317,23 +289,42 @@ end
 assign s2_valid = s2_current_state == S2_WAIT;
 assign s2_ready = s2_current_state == S2_IDLE || (s2_valid && s3_ready);
 
+wire guard_a  = |(s2_guardmask  & s2_sig_a);
+wire guard_b  = |(s2_guardmask  & s2_sig_b);
+wire round_a  = |(s2_roundmask  & s2_sig_a);
+wire round_b  = |(s2_roundmask  & s2_sig_b);
+wire sticky_a = |(s2_stickymask & s2_sig_a);
+wire sticky_b = |(s2_stickymask & s2_sig_b);
+
+wire guardBit  = s2_comp_exp_ab ? guard_a  : guard_b ; 
+wire roundBit  = s2_comp_exp_ab ? round_a  : round_b ; 
+wire stickyBit = s2_comp_exp_ab ? sticky_a : sticky_b; 
+
+wire stickyBits_a = guard_a || round_a || sticky_a;
+wire stickyBits_b = guard_b || round_b || sticky_b;
+//sig origin add/sub(53 bits)
+
+wire                sel_sign_b   = s2_sign_b ^ s2_is_sub;
+wire                is_effsub    = sel_sign_b ^ s2_sign_a;
+wire                comp_op      = s2_sigShift_a > s2_sigShift_b;
+
 wire                overflow;
 /* verilator lint_off WIDTHEXPAND */
-wire [SIG_BITS-1:0] eff_sub_res  = s2_comp_op ? s2_sigShift_a - s2_sigShift_b - s2_stickyBits_b : s2_sigShift_b - s2_sigShift_a - s2_stickyBits_a;//sticky : Borrow in
+wire [SIG_BITS-1:0] eff_sub_res  = comp_op ? s2_sigShift_a - s2_sigShift_b - stickyBits_b : s2_sigShift_b - s2_sigShift_a - stickyBits_a;//sticky : Borrow in
 /* verilator lint_on WIDTHEXPAND */
-wire                eff_sub_sign = s2_comp_op ? s2_sign_a : s2_sel_sign_b;
+wire                eff_sub_sign = comp_op ? s2_sign_a : sel_sign_b;
 wire [SIG_BITS-1:0] eff_add_res;
 assign {overflow,   eff_add_res} = s2_sigShift_a + s2_sigShift_b;
 wire                eff_add_sign = s2_sign_a;
 
-wire [SIG_BITS-1:0] add_sub_res  = s2_is_effsub ? eff_sub_res  : eff_add_res ;
-wire                add_sub_sign = s2_is_effsub ? eff_sub_sign : eff_add_sign;
-wire                of           = s2_is_effsub ? 1'b0         : overflow    ;
+wire [SIG_BITS-1:0] add_sub_res  = is_effsub ? eff_sub_res  : eff_add_res ;
+wire                add_sub_sign = is_effsub ? eff_sub_sign : eff_add_sign;
+wire                of           = is_effsub ? 1'b0         : overflow    ;
 
-wire [2:0] borrow_grs     = 3'b0 - {s2_guardBit, s2_roundBit, s2_stickyBit};
-wire       real_guardBit  = s2_is_effsub ? borrow_grs[2] : s2_guardBit ;
-wire       real_roundBit  = s2_is_effsub ? borrow_grs[1] : s2_roundBit ;
-wire       real_stickyBit = s2_is_effsub ? borrow_grs[0] : s2_stickyBit;
+wire [2:0] borrow_grs     = 3'b0 - {guardBit, roundBit, stickyBit};
+wire       real_guardBit  = is_effsub ? borrow_grs[2] : guardBit ;
+wire       real_roundBit  = is_effsub ? borrow_grs[1] : roundBit ;
+wire       real_stickyBit = is_effsub ? borrow_grs[0] : stickyBit;
 wire [SIG_BITS+2:0] real_sig = {add_sub_res, real_guardBit, real_roundBit, real_stickyBit};
 
 //sig left shift
@@ -445,7 +436,7 @@ always @(posedge aclk, posedge areset) begin
     end else begin
         s3_current_state <= s3_next_state;
         if(s2_valid && s3_ready) begin
-            s3_sel_sign_b <= s2_sel_sign_b;
+            s3_sel_sign_b <= sel_sign_b;
                                           
             s3_frm        <= s2_frm       ;
                                           
