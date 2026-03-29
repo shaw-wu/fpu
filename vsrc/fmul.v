@@ -51,7 +51,7 @@ wire i_valid = s_axis_a_tvalid && s_axis_b_tvalid;
 wire o_ready = m_axis_res_tready;
 assign s_axis_a_tready   = s1_ready;
 assign s_axis_b_tready   = s1_ready;
-assign m_axis_res_tvalid = s7_valid;
+assign m_axis_res_tvalid = s8_valid;
 
 /*======== stage 1 ========*/
 reg [FRM_BITS-1:0] frm   ;
@@ -341,9 +341,9 @@ always@(*) begin
             else         s7_next_state = S7_IDLE;
         end
         S7_WAIT : begin
-            if     (o_ready && s3_valid) s7_next_state = S7_WAIT;
-            else if(o_ready            ) s7_next_state = S7_IDLE;
-            else                         s7_next_state = S7_IDLE;
+            if     (s8_ready && s3_valid) s7_next_state = S7_WAIT;
+            else if(s8_ready            ) s7_next_state = S7_IDLE;
+            else                          s7_next_state = S7_IDLE;
         end
         default : s7_next_state = S7_IDLE;
     endcase
@@ -397,10 +397,9 @@ always@(posedge aclk or posedge areset) begin
 end
 
 assign s7_valid = s7_current_state == S7_WAIT;
-assign s7_ready = (s7_current_state == S7_IDLE) || ((s7_current_state == S7_WAIT) && o_ready);
+assign s7_ready = (s7_current_state == S7_IDLE) || ((s7_current_state == S7_WAIT) && s8_ready);
 
 wire [2*SIG_BITS-1:0] sig_res = s7_compl_sig_res[2*SIG_BITS-1:0];
-
 
 wire                  carry      = sig_res[2*SIG_BITS-1];
 wire [2*SIG_BITS-1:0] s_sig_res  = carry ? sig_res : sig_res << 1;
@@ -415,17 +414,35 @@ wire res_over = !s7_compl_add_exp[EXP_BITS-1] && exp_res[EXP_BITS-1];
 wire [EXP_BITS-1:0] s_exp_res = s7_neg_overflow             ? 0                              : 
                                 s7_pos_overflow || res_over ? {3'b110, {(EXP_BITS-3){1'b0}}} : {!exp_res[EXP_BITS-1], exp_res[EXP_BITS-2:0]};
 
+/* ====== stage 8 ====== */
 //round
+wire s8_valid;
+wire s8_ready;
 wire underUnormal;
 wire [SIG_BITS-1:0] r_sig ;
 wire [EXP_BITS-1:0] r_exp ;
 wire                r_sign;
 wire [FLA_BITS-1:0] fflags;
+wire r_sign_a;
+wire r_sign_b;
+wire r_isQNAN_a;
+wire r_isSNAN_a;
+wire r_isINf_a ;
+wire r_isZero_a;
+wire r_isQNAN_b;
+wire r_isSNAN_b;
+wire r_isINf_b ;
+wire r_isZero_b;
 
-round #(
+fmul_round #(
     .SIG_BITS(SIG_BITS),
     .EXP_BITS(EXP_BITS)
 ) ROUND (
+    .clk         (aclk                            ),
+    .rst         (areset                          ),
+
+    .i_valid     (s7_valid                        ),
+    .i_ready     (s8_ready                        ),
 	.sig         (s_sig_res[2*SIG_BITS-1:SIG_BITS]),
 	.exp         (s_exp_res                       ),
 	.sign        (s_sign_res                      ),
@@ -435,8 +452,31 @@ round #(
 	.nv          (1'b0                            ),
 	.dz          (1'b0                            ),
 	.frm         (s7_frm                          ),
+    .i_sign_a    (s7_sign_a                       ),
+    .i_sign_b    (s7_sign_b                       ),
+    .i_isQNAN_a  (s7_isQNAN_a                     ),
+    .i_isSNAN_a  (s7_isSNAN_a                     ),
+    .i_isINf_a   (s7_isINf_a                      ),
+    .i_isZero_a  (s7_isZero_a                     ),
+    .i_isQNAN_b  (s7_isQNAN_b                     ),
+    .i_isSNAN_b  (s7_isSNAN_b                     ),
+    .i_isINf_b   (s7_isINf_b                      ),
+    .i_isZero_b  (s7_isZero_b                     ),
 	.fflags      (fflags                          ),
 	.underUnormal(underUnormal                    ),
+
+    .o_valid     (s8_valid                        ),
+    .o_ready     (o_ready                         ),
+    .o_sign_a    (r_sign_a                        ),
+    .o_sign_b    (r_sign_b                        ),
+    .o_isQNAN_a  (r_isQNAN_a                      ),
+    .o_isSNAN_a  (r_isSNAN_a                      ),
+    .o_isINf_a   (r_isINf_a                       ),
+    .o_isZero_a  (r_isZero_a                      ),
+    .o_isQNAN_b  (r_isQNAN_b                      ),
+    .o_isSNAN_b  (r_isSNAN_b                      ),
+    .o_isINf_b   (r_isINf_b                       ),
+    .o_isZero_b  (r_isZero_b                      ),
 	.o_sig       (r_sig                           ),
 	.o_exp       (r_exp                           ),
     .o_sign      (r_sign                          )
@@ -447,20 +487,20 @@ wire [EXP_BITS-1:0] o_exp  = underUnormal ? 0 : r_exp;
 wire                o_sign = r_sign;
 
 //inf 
-wire                INf_sign_res = (s7_isZero_a && s7_isINf_b) || (s7_isZero_b && s7_isINf_a) ? QNAN_D[DATA_WIDTH-1] : s7_sign_a ^ s7_sign_b;//Inf Inf
-wire [EXP_BITS-1:0] INf_exp_res  = (s7_isZero_a && s7_isINf_b) || (s7_isZero_b && s7_isINf_a) ? {1'b1, QNAN_D[SIG_BITS-1+:EXP_BITS-1]} : {3'b110, {(EXP_BITS-3){1'b0}}};
-wire [SIG_BITS-1:0] INf_sig_res  = (s7_isZero_a && s7_isINf_b) || (s7_isZero_b && s7_isINf_a) ? {1'b1, QNAN_D[SIG_BITS-2 :         0]} : 0                             ;
+wire                INf_sign_res = (r_isZero_a && r_isINf_b) || (r_isZero_b && r_isINf_a) ? QNAN_D[DATA_WIDTH-1] : r_sign_a ^ r_sign_b;//Inf Inf
+wire [EXP_BITS-1:0] INf_exp_res  = (r_isZero_a && r_isINf_b) || (r_isZero_b && r_isINf_a) ? {1'b1, QNAN_D[SIG_BITS-1+:EXP_BITS-1]} : {3'b110, {(EXP_BITS-3){1'b0}}};
+wire [SIG_BITS-1:0] INf_sig_res  = (r_isZero_a && r_isINf_b) || (r_isZero_b && r_isINf_a) ? {1'b1, QNAN_D[SIG_BITS-2 :         0]} : 0                             ;
 
 //zero
 
-wire                Zero_sign_res = s7_sign_a ^ s7_sign_b;
+wire                Zero_sign_res = r_sign_a ^ r_sign_b;
 wire [EXP_BITS-1:0] Zero_exp_res  = 0;
 wire [SIG_BITS-1:0] Zero_sig_res  = 0;
 
-wire isSNAN = s7_isSNAN_a || s7_isSNAN_b;
-wire isQNAN = s7_isQNAN_a || s7_isQNAN_b;
-wire isINf  = s7_isINf_a  || s7_isINf_b ;
-wire isZero = s7_isZero_a || s7_isZero_b;
+wire isSNAN = r_isSNAN_a || r_isSNAN_b;
+wire isQNAN = r_isQNAN_a || r_isQNAN_b;
+wire isINf  = r_isINf_a  || r_isINf_b ;
+wire isZero = r_isZero_a || r_isZero_b;
 //ASSIGN output 
 assign m_axis_res_sign   = isSNAN || isQNAN ? 0             : 
                            isINf            ? INf_sign_res  :
@@ -477,6 +517,6 @@ assign m_axis_res_exp    = isSNAN || isQNAN ? {EXP_BITS{1'b1}} :
 
 assign m_axis_res_fflags = isSNAN ? 5'h10                       :
                            isQNAN ? 5'h00                       :
-                           isINf  ? {(s7_isZero_a && s7_isINf_b) || (s7_isZero_b && s7_isINf_a), 4'b0} :
+                           isINf  ? {(r_isZero_a && r_isINf_b) || (r_isZero_b && r_isINf_a), 4'b0} :
                            isZero ? 5'h00                       : fflags;
 endmodule
