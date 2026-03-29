@@ -56,7 +56,7 @@ localparam EXPUNOR_MAX_D = 12'b0_100_0000_0001;
  
 assign s_axis_a_tready = s1_ready;
 assign s_axis_b_tready = s1_ready;
-assign m_axis_res_tvalid = s3_valid;
+assign m_axis_res_tvalid = s4_valid;
 wire i_valid = s_axis_a_tvalid && s_axis_b_tvalid;
 wire o_ready = m_axis_res_tready;
 
@@ -185,10 +185,6 @@ wire stickyBit = comp_exp_ab ? sticky_a : sticky_b;
 
 wire stickyBits_a = guard_a || round_a || sticky_a;
 wire stickyBits_b = guard_b || round_b || sticky_b;
-
-//wire [SIG_BITS-1:0] sigShift_a = full_sigShift_a;
-//wire [SIG_BITS-1:0] sigShift_b = full_sigShift_b;
-
 //sig origin add/sub(53 bits)
 
 wire                sel_sign_b   = s1_sign_b ^ is_sub;
@@ -408,9 +404,9 @@ always @(*) begin
             else          s3_next_state = S3_IDLE;
         end
         S3_WAIT : begin //s3_valid == 1
-            if      (o_ready && s2_valid) s3_next_state = S3_WAIT;
-            else if (o_ready            ) s3_next_state = S3_IDLE;
-            else                          s3_next_state = S3_WAIT;
+            if      (s4_ready && s2_valid) s3_next_state = S3_WAIT;
+            else if (s4_ready            ) s3_next_state = S3_IDLE;
+            else                           s3_next_state = S3_WAIT;
         end
         default : s3_next_state = S3_IDLE;
     endcase
@@ -480,18 +476,45 @@ always @(posedge aclk, posedge areset) begin
 end
 
 assign s3_valid = s3_current_state == S3_WAIT;
-assign s3_ready = s3_current_state == S3_IDLE || (s3_valid && o_ready);
+assign s3_ready = s3_current_state == S3_IDLE || (s3_valid && s4_ready);
 
 //round
+wire s4_valid;
+wire s4_ready;
+
 wire [SIG_BITS -1:0] o_sig ;
 wire [EXP_BITS -1:0] o_exp ;
 wire                 o_sign;
 wire [FLA_BITS -1:0] fflags;
 
-round #(
+wire                r_sel_sign_b;
+
+wire [FRM_BITS-1:0] r_frm     ;
+wire                r_sign_a  ;
+wire [SIG_BITS-1:0] r_sig_a   ;
+wire [EXP_BITS-1:0] r_exp_a   ;
+wire                r_isQNAN_a;
+wire                r_isSNAN_a;
+wire                r_isINf_a ;
+wire                r_isZero_a;
+
+wire [SIG_BITS-1:0] r_sig_b   ;
+wire [EXP_BITS-1:0] r_exp_b   ;
+wire                r_isQNAN_b;
+wire                r_isSNAN_b;
+wire                r_isINf_b ;
+wire                r_isZero_b;
+
+fadd_round #(
     .SIG_BITS(SIG_BITS),
     .EXP_BITS(EXP_BITS)
 ) ROUND (
+    .clk         (aclk         ),
+    .rst         (areset       ),
+
+    .i_valid     (s3_valid     ),
+    .i_ready     (s4_ready     ),
+
 	.sig         (s3_s_sig_res ),
 	.exp         (s3_s_exp_res ),
 	.sign        (s3_s_sign_res),
@@ -501,56 +524,82 @@ round #(
 	.nv          (1'b0         ),
 	.dz          (1'b0         ),
 	.frm         (s3_frm       ),
+
+    .i_sel_sign_b(s3_sel_sign_b),
+    .i_sign_a    (s3_sign_a    ),
+    .i_sig_a     (s3_sig_a     ),
+    .i_exp_a     (s3_exp_a     ),
+    .i_isQNAN_a  (s3_isQNAN_a  ),
+    .i_isSNAN_a  (s3_isSNAN_a  ),
+    .i_isINf_a   (s3_isINf_a   ),
+    .i_isZero_a  (s3_isZero_a  ),
+    .i_sig_b     (s3_sig_b     ),
+    .i_exp_b     (s3_exp_b     ),
+    .i_isQNAN_b  (s3_isQNAN_b  ),
+    .i_isSNAN_b  (s3_isSNAN_b  ),
+    .i_isINf_b   (s3_isINf_b   ),
+    .i_isZero_b  (s3_isZero_b  ),
+
+    .o_valid     (s4_valid     ),
+    .o_ready     (o_ready      ),
+
 	.fflags      (fflags       ),
 /*verilator lint_off PINCONNECTEMPTY*/
 	.underUnormal(             ),
 /*verilator lint_on PINCONNECTEMPTY*/
 	.o_sig       (o_sig        ),
 	.o_exp       (o_exp        ),
-    .o_sign      (o_sign       )
+    .o_sign      (o_sign       ),
+
+    .o_sel_sign_b(r_sel_sign_b ),
+    .o_frm       (r_frm        ),
+    .o_sign_a    (r_sign_a     ),
+    .o_sig_a     (r_sig_a      ),
+    .o_exp_a     (r_exp_a      ),
+    .o_isQNAN_a  (r_isQNAN_a   ),
+    .o_isSNAN_a  (r_isSNAN_a   ),
+    .o_isINf_a   (r_isINf_a    ),
+    .o_isZero_a  (r_isZero_a   ),
+    .o_sig_b     (r_sig_b      ),
+    .o_exp_b     (r_exp_b      ),
+    .o_isQNAN_b  (r_isQNAN_b   ),
+    .o_isSNAN_b  (r_isSNAN_b   ),
+    .o_isINf_b   (r_isINf_b    ),
+    .o_isZero_b  (r_isZero_b   ) 
 );
 
-//qnan
-//wire                QNAN_sign_res = s_axis_a_isQNAN ? sign_a : sign_b;
-//wire [EXP_BITS-1:0] QNAN_exp_res  = s_axis_a_isQNAN ? exp_a  : exp_b ;
-//wire [SIG_BITS-1:0] QNAN_sig_res  = s_axis_a_isQNAN ? sig_a  : sig_b ;
-//
-////snan
-//wire                SNAN_sign_res = s_axis_a_isSNAN ? sign_a                                         : sign_b                                        ;
-//wire [EXP_BITS-1:0] SNAN_exp_res  = s_axis_a_isSNAN ? exp_a                                          : exp_b                                         ;
-//wire [SIG_BITS-1:0] SNAN_sig_res  = s_axis_a_isSNAN ? {sig_a[SIG_BITS-1], 1'b1, sig_a[SIG_BITS-3:0]} : {sig_b[SIG_BITS-1], 1'b1, sig_b[SIG_BITS-3:0]};
 
 //inf 
-wire                DINf_sign_res = s3_sign_a ^ s3_sel_sign_b ? QNAN_D[63]            : s3_sign_a;//Inf Inf
-wire [EXP_BITS-1:0] DINf_exp_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN_D[62:52]} : s3_exp_a ;
-wire [SIG_BITS-1:0] DINf_sig_res  = s3_sign_a ^ s3_sel_sign_b ? {1'b1, QNAN_D[51: 0]} : s3_sig_a ;
+wire                DINf_sign_res = r_sign_a ^ r_sel_sign_b ? QNAN_D[63]            : r_sign_a;//Inf Inf
+wire [EXP_BITS-1:0] DINf_exp_res  = r_sign_a ^ r_sel_sign_b ? {1'b1, QNAN_D[62:52]} : r_exp_a ;
+wire [SIG_BITS-1:0] DINf_sig_res  = r_sign_a ^ r_sel_sign_b ? {1'b1, QNAN_D[51: 0]} : r_sig_a ;
 
-wire                CINf_sign_res = s3_isINf_a ? s3_sign_a : s3_sel_sign_b;//Inf C
-wire [EXP_BITS-1:0] CINf_exp_res  = s3_isINf_a ? s3_exp_a  : s3_exp_b     ;
-wire [SIG_BITS-1:0] CINf_sig_res  = s3_isINf_a ? s3_sig_a  : s3_sig_b     ;
+wire                CINf_sign_res = r_isINf_a ? r_sign_a : r_sel_sign_b;//Inf C
+wire [EXP_BITS-1:0] CINf_exp_res  = r_isINf_a ? r_exp_a  : r_exp_b     ;
+wire [SIG_BITS-1:0] CINf_sig_res  = r_isINf_a ? r_sig_a  : r_sig_b     ;
 
-wire                INf_sign_res = s3_isINf_a && s3_isINf_b ? DINf_sign_res : CINf_sign_res ;
-wire [EXP_BITS-1:0] INf_exp_res  = s3_isINf_a && s3_isINf_b ? DINf_exp_res  : CINf_exp_res  ;
-wire [SIG_BITS-1:0] INf_sig_res  = s3_isINf_a && s3_isINf_b ? DINf_sig_res  : CINf_sig_res  ;
+wire                INf_sign_res = r_isINf_a && r_isINf_b ? DINf_sign_res : CINf_sign_res ;
+wire [EXP_BITS-1:0] INf_exp_res  = r_isINf_a && r_isINf_b ? DINf_exp_res  : CINf_exp_res  ;
+wire [SIG_BITS-1:0] INf_sig_res  = r_isINf_a && r_isINf_b ? DINf_sig_res  : CINf_sig_res  ;
 
 //zero
-wire isUnormalize_a = (s3_exp_a >= EXPUNOR_MIN_D) && (s3_exp_a <= EXPUNOR_MAX_D);
-wire [EXP_BITS-1:0] Unormalize_n_a = EXPUNOR_MAX_D - s3_exp_a; //-127 - e
-wire [SIG_BITS-1:0] Zero_sig_a = isUnormalize_a ? s3_sig_a >> (Unormalize_n_a + 1) : s3_sig_a; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
+wire isUnormalize_a = (r_exp_a >= EXPUNOR_MIN_D) && (r_exp_a <= EXPUNOR_MAX_D);
+wire [EXP_BITS-1:0] Unormalize_n_a = EXPUNOR_MAX_D - r_exp_a; //-127 - e
+wire [SIG_BITS-1:0] Zero_sig_a = isUnormalize_a ? r_sig_a >> (Unormalize_n_a + 1) : r_sig_a; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
 
-wire isUnormalize_b = (s3_exp_b >= EXPUNOR_MIN_D) && (s3_exp_b <= EXPUNOR_MAX_D);
-wire [EXP_BITS-1:0] Unormalize_n_b = EXPUNOR_MAX_D - s3_exp_b; //-127 - e
-wire [SIG_BITS-1:0] Zero_sig_b = isUnormalize_b ? s3_sig_b >> (Unormalize_n_b + 1) : s3_sig_b; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
+wire isUnormalize_b = (r_exp_b >= EXPUNOR_MIN_D) && (r_exp_b <= EXPUNOR_MAX_D);
+wire [EXP_BITS-1:0] Unormalize_n_b = EXPUNOR_MAX_D - r_exp_b; //-127 - e
+wire [SIG_BITS-1:0] Zero_sig_b = isUnormalize_b ? r_sig_b >> (Unormalize_n_b + 1) : r_sig_b; //sig[SIG_BITS-1:SIG_BITS-2] = 2e-126, 2e-127
 
-wire                Zero_sign_res = s3_isZero_a && s3_isZero_b ? (s3_sel_sign_b ^ s3_sign_a ? s3_frm == 3'b010 : s3_sign_a) ://0 (+/-) 0
-                                    s3_isZero_a                ?  s3_sel_sign_b                                             : s3_sign_a;
-wire [EXP_BITS-1:0] Zero_exp_res  = s3_isZero_a ? s3_exp_b   : s3_exp_a  ;
-wire [SIG_BITS-1:0] Zero_sig_res  = s3_isZero_a ? Zero_sig_b : Zero_sig_a;
+wire                Zero_sign_res = r_isZero_a && r_isZero_b ? (r_sel_sign_b ^ r_sign_a ? r_frm == 3'b010 : r_sign_a) ://0 (+/-) 0
+                                    r_isZero_a                ?  r_sel_sign_b                                             : r_sign_a;
+wire [EXP_BITS-1:0] Zero_exp_res  = r_isZero_a ? r_exp_b   : r_exp_a  ;
+wire [SIG_BITS-1:0] Zero_sig_res  = r_isZero_a ? Zero_sig_b : Zero_sig_a;
 
-wire isSNAN = s3_isSNAN_a || s3_isSNAN_b;
-wire isQNAN = s3_isQNAN_a || s3_isQNAN_b;
-wire isINf  = s3_isINf_a  || s3_isINf_b ;
-wire isZero = s3_isZero_a || s3_isZero_b;
+wire isSNAN = r_isSNAN_a || r_isSNAN_b;
+wire isQNAN = r_isQNAN_a || r_isQNAN_b;
+wire isINf  = r_isINf_a  || r_isINf_b ;
+wire isZero = r_isZero_a || r_isZero_b;
 //ASSIGN output 
 assign m_axis_res_sign   = isSNAN || isQNAN ? 0             : 
                            isINf            ? INf_sign_res  :
@@ -567,8 +616,8 @@ assign m_axis_res_exp    = isSNAN || isQNAN ? {EXP_BITS{1'b1}} :
 
 assign m_axis_res_fflags = isSNAN ? 5'h10                       :
                            isQNAN ? 5'h00                       :
-                           isINf  ? {s3_isINf_a && s3_isINf_b && (s3_sign_a ^ s3_sel_sign_b), 4'b0} :
+                           isINf  ? {r_isINf_a && r_isINf_b && (r_sign_a ^ r_sel_sign_b), 4'b0} :
                            isZero ? 5'h00                       : fflags;
-//assign busy = (s1_ready && i_valid) || s1_current_state != S1_IDLE || s2_current_state != S2_IDLE || s3_current_state != S3_IDLE;
+//assign busy = (s1_ready && i_valid) || s1_current_state != S1_IDLE || s2_current_state != S2_IDLE || r_current_state != r_IDLE;
 
 endmodule
