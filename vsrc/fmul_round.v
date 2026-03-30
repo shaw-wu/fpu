@@ -71,6 +71,7 @@ wire guard  = |(guardmask  & full_shift_sig);
 wire round  = |(roundmask  & full_shift_sig);
 wire sticky = |(stickymask & full_shift_sig);
 
+/* ====== stage 8 ====== */
 reg                s8_sign_a        ;
 reg                s8_sign_b        ;
 reg                s8_isQNAN_a      ;

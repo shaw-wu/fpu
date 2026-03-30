@@ -12,6 +12,7 @@ tasks = {
     "fadd.d":     [0x00, "f64_add", 2],
     "fsub.d":     [0x01, "f64_sub", 2],
     "fmul.d":     [0x02, "f64_mul", 2],
+    "fdiv.d":     [0x03, "f64_div", 2],
     "feq.d":      [0x04, "f64_eq_quiet",  2],
     "flt.d":      [0x05, "f64_lt_quiet",  2],
     "fle.d":      [0x06, "f64_le_quiet",  2], # 比较指令通常不收 frm 影响，但为了统一格式也遍历一次

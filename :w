@@ -3,8 +3,7 @@
 #include <fenv.h>
 #include <stdio.h>
 
-#define LATENCY 2  // 延迟周期数
-#pragma STDC FENV_ACCESS ON
+#define LATENCY 20  // 延迟周期数
 
 typedef struct {
     unsigned char valid;
@@ -52,21 +51,20 @@ extern "C" void fdiv_D(
 
         // 第一阶段：接收输入并计算
         if (a_valid && b_valid) {
+            feclearexcept(FE_ALL_EXCEPT);
 
             union { uint64_t u; double f; } ua, ub;
             ua.u = (uint64_t)(a_data & 0xFFFFFFFFFFFFFFFF);
             ub.u = (uint64_t)(b_data & 0xFFFFFFFFFFFFFFFF);
 
-            feclearexcept(FE_ALL_EXCEPT);
             double r = ua.f / ub.f;
 			int flags = fetestexcept(FE_ALL_EXCEPT);
-
 
             volatile uint8_t nv = (flags & FE_INVALID)   ? 1 : 0;
             volatile uint8_t of = (flags & FE_OVERFLOW)  ? 1 : 0;
             volatile uint8_t uf = (flags & FE_UNDERFLOW) ? 1 : 0;
 			volatile uint8_t dz = (flags & FE_DIVBYZERO) ? 1 : 0;
-			//printf("nv:%x of:%x uf:%x flags:%x\n",nv , of, uf, flags);
+						//printf("nv:%x of:%x uf:%x flags:%x\n",nv , of, uf, flags);
 
             pipe[0].valid = 1;
             pipe[0].value = r;
