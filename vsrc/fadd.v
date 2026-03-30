@@ -56,7 +56,7 @@ localparam EXPUNOR_MAX_D = 12'b0_100_0000_0001;
  
 assign s_axis_a_tready = s1_ready;
 assign s_axis_b_tready = s1_ready;
-assign m_axis_res_tvalid = s4_valid;
+assign m_axis_res_tvalid = s5_valid;
 wire i_valid = s_axis_a_tvalid && s_axis_b_tvalid;
 wire o_ready = m_axis_res_tready;
 
@@ -215,8 +215,8 @@ always @(*) begin
             else          s2_next_state = S2_IDLE;
         end
         S2_WAIT : begin //s2_valid == 1
-            if      (s3_ready && s1_valid) s2_next_state = S2_WAIT;
-            else if (s3_ready            ) s2_next_state = S2_IDLE;
+            if      (s4_ready && s1_valid) s2_next_state = S2_WAIT;
+            else if (s4_ready            ) s2_next_state = S2_IDLE;
             else                           s2_next_state = S2_WAIT;
         end
         default : s2_next_state = S2_IDLE;
@@ -287,7 +287,7 @@ always @(posedge aclk, posedge areset) begin
 end
 
 assign s2_valid = s2_current_state == S2_WAIT;
-assign s2_ready = s2_current_state == S2_IDLE || (s2_valid && s3_ready);
+assign s2_ready = s2_current_state == S2_IDLE || (s2_valid && s4_ready);
 
 wire guard_a  = |(s2_guardmask  & s2_sig_a);
 wire guard_b  = |(s2_guardmask  & s2_sig_b);
@@ -317,43 +317,8 @@ wire [SIG_BITS-1:0] eff_add_res;
 assign {overflow,   eff_add_res} = s2_sigShift_a + s2_sigShift_b;
 wire                eff_add_sign = s2_sign_a;
 
-wire [SIG_BITS-1:0] add_sub_res  = is_effsub ? eff_sub_res  : eff_add_res ;
-wire                add_sub_sign = is_effsub ? eff_sub_sign : eff_add_sign;
-wire                of           = is_effsub ? 1'b0         : overflow    ;
-
-wire [2:0] borrow_grs     = 3'b0 - {guardBit, roundBit, stickyBit};
-wire       real_guardBit  = is_effsub ? borrow_grs[2] : guardBit ;
-wire       real_roundBit  = is_effsub ? borrow_grs[1] : roundBit ;
-wire       real_stickyBit = is_effsub ? borrow_grs[0] : stickyBit;
-wire [SIG_BITS+2:0] real_sig = {add_sub_res, real_guardBit, real_roundBit, real_stickyBit};
-
-//sig left shift
-wire [SIG_SIZE:0] pos;
-ldz #(
-    .DATA_BITS(SIG_BITS+3),
-    .DATA_SIZE(SIG_SIZE  )
-) LDZ (
-    .in  (real_sig),
-    .out (pos     )
-);
-
-wire [SIG_SIZE-1:0] lamt = pos[SIG_SIZE-1:0];
-wire [SIG_BITS+2:0] ls_sig_res  = real_sig << lamt;
-
-wire [SIG_BITS-1:0] s_sig_res   = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : (pos[SIG_SIZE] ? 0              : ls_sig_res[SIG_BITS+2:3]);
-wire                s_guardBit  = of ? add_sub_res[0]                    : (pos[SIG_SIZE] ? real_guardBit  : ls_sig_res[2]           );
-wire                s_roundBit  = of ? real_guardBit                     : (pos[SIG_SIZE] ? real_roundBit  : ls_sig_res[1]           );
-wire                s_stickyBit = of ? real_roundBit || real_stickyBit   : (pos[SIG_SIZE] ? real_stickyBit : ls_sig_res[0]           );
-wire                s_sign_res  = pos[SIG_SIZE] && !of ? s2_frm == 3'b010 : add_sub_sign;
-
-//exp 
-/* verilator lint_off WIDTHEXPAND */
-wire [EXP_BITS-1:0] s_exp_sel  = s2_comp_exp_ab ? s2_exp_b : s2_exp_a;
-wire [EXP_BITS-1:0] s_exp_res  = of ? s_exp_sel + of : (pos[SIG_SIZE] ? 0 : s_exp_sel - lamt);
-/* verilator lint_on WIDTHEXPAND */
-
 /*======== stage 3 ========*/
-reg                s3_sel_sign_b  ;
+reg                s3_comp_exp_ab ;
 
 reg [FRM_BITS-1:0] s3_frm     ;
 
@@ -373,12 +338,17 @@ reg                s3_isSNAN_b;
 reg                s3_isINf_b ;
 reg                s3_isZero_b;
 
-reg [SIG_BITS-1:0] s3_s_sig_res ;
-reg                s3_guardBit  ;
-reg                s3_roundBit  ;
-reg                s3_stickyBit ;
-reg                s3_s_sign_res;
-reg [EXP_BITS-1:0] s3_s_exp_res ;
+reg                s3_sel_sign_b  ;
+reg                s3_is_effsub   ;
+
+reg                s3_guardBit    ; 
+reg                s3_roundBit    ; 
+reg                s3_stickyBit   ; 
+reg                s3_overflow    ;
+reg [SIG_BITS-1:0] s3_eff_sub_res ;
+reg                s3_eff_sub_sign;
+reg [SIG_BITS-1:0] s3_eff_add_res ;
+reg                s3_eff_add_sign;
 
 wire s3_valid;
 wire s3_ready;
@@ -407,61 +377,71 @@ always @(posedge aclk, posedge areset) begin
     if(areset) begin
         s3_current_state <= S3_IDLE;
 
-        s3_sel_sign_b <= 0;
+        s3_comp_exp_ab  <= 0;
 
-        s3_frm        <= 0;
+        s3_frm      <= 0;
 
-	    s3_sign_a     <= 0;
-	    s3_sig_a      <= 0;
-	    s3_exp_a      <= 0;
-        s3_isQNAN_a   <= 0;
-        s3_isSNAN_a   <= 0;
-        s3_isINf_a    <= 0;
-        s3_isZero_a   <= 0;
+	    s3_sign_a   <= 0;
+	    s3_sig_a    <= 0;
+	    s3_exp_a    <= 0;
+        s3_isQNAN_a <= 0;
+        s3_isSNAN_a <= 0;
+        s3_isINf_a  <= 0;
+        s3_isZero_a <= 0;
 
-	    s3_sign_b     <= 0;
-	    s3_sig_b      <= 0;
-	    s3_exp_b      <= 0;
-        s3_isQNAN_b   <= 0;
-        s3_isSNAN_b   <= 0;
-        s3_isINf_b    <= 0;
-        s3_isZero_b   <= 0;
+	    s3_sign_b   <= 0;
+	    s3_sig_b    <= 0;
+	    s3_exp_b    <= 0;
+        s3_isQNAN_b <= 0;
+        s3_isSNAN_b <= 0;
+        s3_isINf_b  <= 0;
+        s3_isZero_b <= 0;
 
-        s3_s_sig_res  <= 0;
-        s3_guardBit   <= 0;
-        s3_roundBit   <= 0;
-        s3_stickyBit  <= 0;
-        s3_s_sign_res <= 0;
-        s3_s_exp_res  <= 0;
+        s3_sel_sign_b   <= 0;
+        s3_is_effsub    <= 0;
+        
+        s3_guardBit     <= 0; 
+        s3_roundBit     <= 0; 
+        s3_stickyBit    <= 0; 
+        s3_overflow     <= 0;
+        s3_eff_sub_res  <= 0;
+        s3_eff_sub_sign <= 0;
+        s3_eff_add_res  <= 0;
+        s3_eff_add_sign <= 0;
     end else begin
         s3_current_state <= s3_next_state;
         if(s2_valid && s3_ready) begin
-            s3_sel_sign_b <= sel_sign_b;
-                                          
-            s3_frm        <= s2_frm       ;
-                                          
-	        s3_sign_a     <= s2_sign_a    ;
-	        s3_sig_a      <= s2_sig_a     ;
-	        s3_exp_a      <= s2_exp_a     ;
-            s3_isQNAN_a   <= s2_isQNAN_a  ;
-            s3_isSNAN_a   <= s2_isSNAN_a  ;
-            s3_isINf_a    <= s2_isINf_a   ;
-            s3_isZero_a   <= s2_isZero_a  ;
-                                          
-	        s3_sign_b     <= s2_sign_b    ;
-	        s3_sig_b      <= s2_sig_b     ;
-	        s3_exp_b      <= s2_exp_b     ;
-            s3_isQNAN_b   <= s2_isQNAN_b  ;
-            s3_isSNAN_b   <= s2_isSNAN_b  ;
-            s3_isINf_b    <= s2_isINf_b   ;
-            s3_isZero_b   <= s2_isZero_b  ;
+            s3_comp_exp_ab  <= s2_comp_exp_ab;
 
-            s3_s_sig_res  <= s_sig_res    ;
-            s3_guardBit   <= s_guardBit   ;
-            s3_roundBit   <= s_roundBit   ;
-            s3_stickyBit  <= s_stickyBit  ;
-            s3_s_sign_res <= s_sign_res   ;
-            s3_s_exp_res  <= s_exp_res    ;
+            s3_frm          <= s2_frm        ;
+                                             
+	        s3_sign_a       <= s2_sign_a     ;
+	        s3_sig_a        <= s2_sig_a      ;
+	        s3_exp_a        <= s2_exp_a      ;
+            s3_isQNAN_a     <= s2_isQNAN_a   ;
+            s3_isSNAN_a     <= s2_isSNAN_a   ;
+            s3_isINf_a      <= s2_isINf_a    ;
+            s3_isZero_a     <= s2_isZero_a   ;
+                                             
+	        s3_sign_b       <= s2_sign_b     ;
+	        s3_sig_b        <= s2_sig_b      ;
+	        s3_exp_b        <= s2_exp_b      ;
+            s3_isQNAN_b     <= s2_isQNAN_b   ;
+            s3_isSNAN_b     <= s2_isSNAN_b   ;
+            s3_isINf_b      <= s2_isINf_b    ;
+            s3_isZero_b     <= s2_isZero_b   ;
+            
+            s3_sel_sign_b   <= sel_sign_b    ;
+            s3_is_effsub    <= is_effsub     ;
+                               
+            s3_guardBit     <= guardBit      ; 
+            s3_roundBit     <= roundBit      ; 
+            s3_stickyBit    <= stickyBit     ; 
+            s3_overflow     <= overflow      ;
+            s3_eff_sub_res  <= eff_sub_res   ;
+            s3_eff_sub_sign <= eff_sub_sign  ;
+            s3_eff_add_res  <= eff_add_res   ;
+            s3_eff_add_sign <= eff_add_sign  ;
         end
     end
 end
@@ -469,9 +449,162 @@ end
 assign s3_valid = s3_current_state == S3_WAIT;
 assign s3_ready = s3_current_state == S3_IDLE || (s3_valid && s4_ready);
 
-//round
+
+wire [SIG_BITS-1:0] add_sub_res  = s3_is_effsub ? s3_eff_sub_res  : s3_eff_add_res ;
+wire                add_sub_sign = s3_is_effsub ? s3_eff_sub_sign : s3_eff_add_sign;
+wire                of           = s3_is_effsub ? 1'b0            : s3_overflow    ;
+
+wire [2:0] borrow_grs     = 3'b0 - {s3_guardBit, s3_roundBit, s3_stickyBit};
+wire       real_guardBit  = s3_is_effsub ? borrow_grs[2] : s3_guardBit ;
+wire       real_roundBit  = s3_is_effsub ? borrow_grs[1] : s3_roundBit ;
+wire       real_stickyBit = s3_is_effsub ? borrow_grs[0] : s3_stickyBit;
+wire [SIG_BITS+2:0] real_sig = {add_sub_res, real_guardBit, real_roundBit, real_stickyBit};
+
+//sig left shift
+wire [SIG_SIZE:0] pos;
+ldz #(
+    .DATA_BITS(SIG_BITS+3),
+    .DATA_SIZE(SIG_SIZE  )
+) LDZ (
+    .in  (real_sig),
+    .out (pos     )
+);
+
+wire [SIG_SIZE-1:0] lamt = pos[SIG_SIZE-1:0];
+wire [SIG_BITS+2:0] ls_sig_res  = real_sig << lamt;
+
+wire [SIG_BITS-1:0] s_sig_res   = of ? {1'b1, add_sub_res[SIG_BITS-1:1]} : (pos[SIG_SIZE] ? 0              : ls_sig_res[SIG_BITS+2:3]);
+wire                s_guardBit  = of ? add_sub_res[0]                    : (pos[SIG_SIZE] ? real_guardBit  : ls_sig_res[2]           );
+wire                s_roundBit  = of ? real_guardBit                     : (pos[SIG_SIZE] ? real_roundBit  : ls_sig_res[1]           );
+wire                s_stickyBit = of ? real_roundBit || real_stickyBit   : (pos[SIG_SIZE] ? real_stickyBit : ls_sig_res[0]           );
+wire                s_sign_res  = pos[SIG_SIZE] && !of ? s3_frm == 3'b010 : add_sub_sign;
+
+//exp 
+/* verilator lint_off WIDTHEXPAND */
+wire [EXP_BITS-1:0] s_exp_sel  = s3_comp_exp_ab ? s3_exp_b : s3_exp_a;
+wire [EXP_BITS-1:0] s_exp_res  = of ? s_exp_sel + of : (pos[SIG_SIZE] ? 0 : s_exp_sel - lamt);
+/* verilator lint_on WIDTHEXPAND */
+
+/*======== stage 4 ========*/
+reg                s4_sel_sign_b  ;
+
+reg [FRM_BITS-1:0] s4_frm     ;
+
+reg                s4_sign_a  ;
+reg [SIG_BITS-1:0] s4_sig_a   ;
+reg [EXP_BITS-1:0] s4_exp_a   ;
+reg                s4_isQNAN_a;
+reg                s4_isSNAN_a;
+reg                s4_isINf_a ;
+reg                s4_isZero_a;
+
+reg                s4_sign_b  ;
+reg [SIG_BITS-1:0] s4_sig_b   ;
+reg [EXP_BITS-1:0] s4_exp_b   ;
+reg                s4_isQNAN_b;
+reg                s4_isSNAN_b;
+reg                s4_isINf_b ;
+reg                s4_isZero_b;
+
+reg [SIG_BITS-1:0] s4_s_sig_res ;
+reg                s4_guardBit  ;
+reg                s4_roundBit  ;
+reg                s4_stickyBit ;
+reg                s4_s_sign_res;
+reg [EXP_BITS-1:0] s4_s_exp_res ;
+
 wire s4_valid;
 wire s4_ready;
+
+localparam S4_IDLE = 2'b01;
+localparam S4_WAIT = 2'b10;
+
+reg [1:0] s4_current_state, s4_next_state;
+
+always @(*) begin
+    case(s4_current_state)
+        S4_IDLE : begin //s4_ready == 1
+            if (s3_valid) s4_next_state = S4_WAIT; 
+            else          s4_next_state = S4_IDLE;
+        end
+        S4_WAIT : begin //s4_valid == 1
+            if      (s5_ready && s3_valid) s4_next_state = S4_WAIT;
+            else if (s5_ready            ) s4_next_state = S4_IDLE;
+            else                           s4_next_state = S4_WAIT;
+        end
+        default : s4_next_state = S4_IDLE;
+    endcase
+end
+
+always @(posedge aclk, posedge areset) begin
+    if(areset) begin
+        s4_current_state <= S4_IDLE;
+
+        s4_sel_sign_b <= 0;
+
+        s4_frm        <= 0;
+
+	    s4_sign_a     <= 0;
+	    s4_sig_a      <= 0;
+	    s4_exp_a      <= 0;
+        s4_isQNAN_a   <= 0;
+        s4_isSNAN_a   <= 0;
+        s4_isINf_a    <= 0;
+        s4_isZero_a   <= 0;
+
+	    s4_sign_b     <= 0;
+	    s4_sig_b      <= 0;
+	    s4_exp_b      <= 0;
+        s4_isQNAN_b   <= 0;
+        s4_isSNAN_b   <= 0;
+        s4_isINf_b    <= 0;
+        s4_isZero_b   <= 0;
+
+        s4_s_sig_res  <= 0;
+        s4_guardBit   <= 0;
+        s4_roundBit   <= 0;
+        s4_stickyBit  <= 0;
+        s4_s_sign_res <= 0;
+        s4_s_exp_res  <= 0;
+    end else begin
+        s4_current_state <= s4_next_state;
+        if(s3_valid && s4_ready) begin
+            s4_sel_sign_b <= s3_sel_sign_b;
+                                          
+            s4_frm        <= s3_frm       ;
+                                          
+	        s4_sign_a     <= s3_sign_a    ;
+	        s4_sig_a      <= s3_sig_a     ;
+	        s4_exp_a      <= s3_exp_a     ;
+            s4_isQNAN_a   <= s3_isQNAN_a  ;
+            s4_isSNAN_a   <= s3_isSNAN_a  ;
+            s4_isINf_a    <= s3_isINf_a   ;
+            s4_isZero_a   <= s3_isZero_a  ;
+                              
+	        s4_sign_b     <= s3_sign_b    ;
+	        s4_sig_b      <= s3_sig_b     ;
+	        s4_exp_b      <= s3_exp_b     ;
+            s4_isQNAN_b   <= s3_isQNAN_b  ;
+            s4_isSNAN_b   <= s3_isSNAN_b  ;
+            s4_isINf_b    <= s3_isINf_b   ;
+            s4_isZero_b   <= s3_isZero_b  ;
+
+            s4_s_sig_res  <= s_sig_res    ;
+            s4_guardBit   <= s_guardBit   ;
+            s4_roundBit   <= s_roundBit   ;
+            s4_stickyBit  <= s_stickyBit  ;
+            s4_s_sign_res <= s_sign_res   ;
+            s4_s_exp_res  <= s_exp_res    ;
+        end
+    end
+end
+
+assign s4_valid = s4_current_state == S4_WAIT;
+assign s4_ready = s4_current_state == S4_IDLE || (s4_valid && s5_ready);
+
+//round
+wire s5_valid;
+wire s5_ready;
 
 wire [SIG_BITS -1:0] o_sig ;
 wire [EXP_BITS -1:0] o_exp ;
@@ -503,35 +636,35 @@ fadd_round #(
     .clk         (aclk         ),
     .rst         (areset       ),
 
-    .i_valid     (s3_valid     ),
-    .i_ready     (s4_ready     ),
+    .i_valid     (s4_valid     ),
+    .i_ready     (s5_ready     ),
 
-	.sig         (s3_s_sig_res ),
-	.exp         (s3_s_exp_res ),
-	.sign        (s3_s_sign_res),
-	.Inguard     (s3_guardBit  ),
-	.Inround     (s3_roundBit  ),
-	.Insticky    (s3_stickyBit ),
+	.sig         (s4_s_sig_res ),
+	.exp         (s4_s_exp_res ),
+	.sign        (s4_s_sign_res),
+	.Inguard     (s4_guardBit  ),
+	.Inround     (s4_roundBit  ),
+	.Insticky    (s4_stickyBit ),
 	.nv          (1'b0         ),
 	.dz          (1'b0         ),
-	.frm         (s3_frm       ),
+	.frm         (s4_frm       ),
 
-    .i_sel_sign_b(s3_sel_sign_b),
-    .i_sign_a    (s3_sign_a    ),
-    .i_sig_a     (s3_sig_a     ),
-    .i_exp_a     (s3_exp_a     ),
-    .i_isQNAN_a  (s3_isQNAN_a  ),
-    .i_isSNAN_a  (s3_isSNAN_a  ),
-    .i_isINf_a   (s3_isINf_a   ),
-    .i_isZero_a  (s3_isZero_a  ),
-    .i_sig_b     (s3_sig_b     ),
-    .i_exp_b     (s3_exp_b     ),
-    .i_isQNAN_b  (s3_isQNAN_b  ),
-    .i_isSNAN_b  (s3_isSNAN_b  ),
-    .i_isINf_b   (s3_isINf_b   ),
-    .i_isZero_b  (s3_isZero_b  ),
+    .i_sel_sign_b(s4_sel_sign_b),
+    .i_sign_a    (s4_sign_a    ),
+    .i_sig_a     (s4_sig_a     ),
+    .i_exp_a     (s4_exp_a     ),
+    .i_isQNAN_a  (s4_isQNAN_a  ),
+    .i_isSNAN_a  (s4_isSNAN_a  ),
+    .i_isINf_a   (s4_isINf_a   ),
+    .i_isZero_a  (s4_isZero_a  ),
+    .i_sig_b     (s4_sig_b     ),
+    .i_exp_b     (s4_exp_b     ),
+    .i_isQNAN_b  (s4_isQNAN_b  ),
+    .i_isSNAN_b  (s4_isSNAN_b  ),
+    .i_isINf_b   (s4_isINf_b   ),
+    .i_isZero_b  (s4_isZero_b  ),
 
-    .o_valid     (s4_valid     ),
+    .o_valid     (s5_valid     ),
     .o_ready     (o_ready      ),
 
 	.fflags      (fflags       ),
