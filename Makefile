@@ -31,7 +31,7 @@ VERILATOR_FLAGS += -cc --exe \
 									 --timing  \
 									 --build   
 CXXFLAGS += -DSIM_TIME=$(SIM_TIME)
-CXXFLAGS += -O0 -fno-fast-math -ffloat-store
+CXXFLAGS += -fno-fast-math -ffloat-store
 ifeq ($(ENABLE_WAVEFORM), 1)
 CXXFLAGS += -DENABLE_WAVEFORM
 endif
