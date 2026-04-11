@@ -78,22 +78,42 @@
 
 ```text
 .
-├── csrc/                 # Verilator 仿真与 DPI-C 代码
-│   ├── div.c             # fdiv 的 C 模型
-│   └── sim_main.cpp      # 仿真主程序
-├── vsrc/                 # Verilog 源码
-│   ├── fpu.v             # FPU 顶层
-│   ├── fadd*.v           # 加/减法相关模块
-│   ├── fmul*.v           # 乘法相关模块
-│   ├── fdiv.v            # 除法封装
-│   ├── cvt_*.v           # 浮点/整数转换模块
-│   ├── torecFN.v         # IEEE-754 -> recoded
-│   ├── tostdFN.v         # recoded -> IEEE-754
-│   ├── testbench.v       # Verilog 测试平台
-│   └── mul/              # 乘法器子模块
-├── Makefile              # 构建、运行、波形查看
-└── fpu_test_suite.tmp    # 仿真输入向量（运行时读取）
+├── csrc/                     # Verilator 仿真与 DPI-C 代码
+│   ├── div.c                 # fdiv 的 C 模型
+│   └── sim_main.cpp          # 仿真主程序
+├── vsrc/                     # Verilog RTL 源码
+│   ├── fpu.v                 # FPU 顶层
+│   ├── fadd.v                # 双精度加/减主通路
+│   ├── fadd_round.v          # 加/减舍入模块
+│   ├── fmul.v                # 双精度乘法主通路
+│   ├── fmul_round.v          # 乘法舍入模块
+│   ├── fdiv.v                # 除法封装
+│   ├── cvt_fw.v              # 浮点转整数
+│   ├── cvt_wf.v              # 整数转浮点
+│   ├── torecFN.v             # IEEE-754 -> recoded
+│   ├── tostdFN.v             # recoded -> IEEE-754
+│   ├── Rshifter.v            # 右移/对阶相关模块
+│   ├── ldz.v                 # 前导零检测
+│   ├── testbench.v           # 主测试平台
+│   ├── fpu_test_vectors.hex  # 相关测试数据文件
+│   └── mul/                  # 乘法器子模块
+│       ├── mul.v
+│       ├── csa.v
+│       ├── encBooth2.v
+│       └── ppGen.v
+├── Makefile                  # 构建、运行、波形查看
+├── test_gen.py               # 生成 `fpu_test_suite.tmp` 的脚本
+├── testfloat_gen             # 参考结果生成器
+├── filter_nan.py             # 测试/日志辅助脚本
+├── build/                    # Verilator 构建输出目录（生成）
+└── fpu_context_log.md        # 项目背景与阶段性记录
 ```
+
+说明：
+
+- 上面列的是当前工程里和开发、仿真、测试最相关的目录与文件
+- 根目录还存在一些 `*.tmp` 中间文件，主要用于向量生成、测试记录和调试排查
+- 像 `build/` 这类目录属于运行 `make` 后生成的产物，不需要手工维护
 
 ## 构建与仿真
 
