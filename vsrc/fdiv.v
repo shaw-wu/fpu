@@ -20,8 +20,7 @@ localparam [1:0] S_IDLE = 2'b00;
 localparam [1:0] S_CALC = 2'b01;
 localparam [1:0] S_OUT  = 2'b10;
 
-localparam [63:0] QUIET_BIT_D = 64'h0008_0000_0000_0000;
-localparam [63:0] DEFNAN_D    = 64'hfff8_0000_0000_0000;
+localparam [63:0] CANONICAL_NAN_D = 64'h7ff8_0000_0000_0000;
 localparam [63:0] MAX_FIN_D  = 64'h7fef_ffff_ffff_ffff;
 localparam [63:0] POS_INF_D  = 64'h7ff0_0000_0000_0000;
 
@@ -78,13 +77,6 @@ function [63:0] pack_inf;
     input sign;
     begin
         pack_inf = POS_INF_D | ({63'b0, sign} << 63);
-    end
-endfunction
-
-function [63:0] quiet_nan;
-    input [63:0] nan_bits;
-    begin
-        quiet_nan = nan_bits | QUIET_BIT_D;
     end
 endfunction
 
@@ -227,10 +219,10 @@ always @(*) begin
     calc_flags  = 5'd0;
 
     if (a_is_nan || b_is_nan) begin
-        calc_result = a_is_nan ? quiet_nan(op_a) : quiet_nan(op_b);
+        calc_result = CANONICAL_NAN_D;
         calc_flags  = {(a_is_snan || b_is_snan), 4'b0000};
     end else if ((a_is_inf && b_is_inf) || (a_is_zero && b_is_zero)) begin
-        calc_result = DEFNAN_D;
+        calc_result = CANONICAL_NAN_D;
         calc_flags  = 5'b10000;
     end else if (a_is_inf) begin
         calc_result = pack_inf(res_sign);

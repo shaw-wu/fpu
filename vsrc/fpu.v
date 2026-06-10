@@ -146,6 +146,11 @@ always @(posedge clk or posedge rst) begin
         s0_fina <= 0;
         s0_finb <= 0;
 
+        cntTrans0_add <= 0;
+        cntTrans0_mul <= 0;
+        cntTrans0_div <= 0;
+        cntTrans1     <= 0;
+
 		s0_current_state <= S0_IDLE;
 	end else begin
 		s0_current_state <= s0_next_state;
@@ -440,24 +445,7 @@ fdiv FDIV(
 
 /*========  stage 1 ========*/
 reg [2:0] s1_frm;
-
-reg s1_sign_a;
-reg [EXP_BITS  :0] s1_exp_a;//recFN exp
-reg [SIG_BITS-1:0] s1_sig_a;
-reg s1_isQNAN_a;
-reg s1_isSNAN_a;
-reg s1_isINf_a ;
-//reg s1_isZero_a;
-//reg s1_isUnormalize_a;
-//reg s1_isNormalize_a ;
-
-//reg s1_sign_b;
-//reg [EXP_BITS  :0] s1_exp_b;//recFN exp
-//reg [SIG_BITS-1:0] s1_sig_b;
-//reg s1_isQNAN_b;
-//reg s1_isSNAN_b;
-//reg s1_isINf_b ;
-//reg s1_isZero_b;
+reg [FDATA_BITS-1:0] s1_fina;
 
 reg s1_fcvt_w_d ;
 reg s1_fcvt_wu_d;
@@ -488,13 +476,7 @@ end
 always @(posedge clk or posedge rst) begin
 	if(rst) begin
         s1_frm       <= 0;
-
-        s1_sign_a    <= 0;
-        s1_exp_a     <= 0;
-        s1_sig_a     <= 0;
-        s1_isQNAN_a  <= 0;
-        s1_isSNAN_a  <= 0;
-        s1_isINf_a   <= 0;
+        s1_fina      <= 0;
 
         s1_fcvt_w_d  <= 0;
         s1_fcvt_wu_d <= 0;
@@ -504,13 +486,7 @@ always @(posedge clk or posedge rst) begin
 		s1_current_state <= s1_next_state;
         if(s0_valid && s1_ready) begin
             s1_frm       <= s0_frm   ;
-
-            s1_sign_a    <= sign_a   ;
-            s1_exp_a     <= exp_a    ;
-            s1_sig_a     <= sig_a    ;
-            s1_isQNAN_a  <= isQNAN_a ;
-            s1_isSNAN_a  <= isSNAN_a ;
-            s1_isINf_a   <= isINf_a  ;
+            s1_fina      <= s0_fina  ;
 
             s1_fcvt_w_d  <= fcvt_w_d ;
             s1_fcvt_wu_d <= fcvt_wu_d;
@@ -528,16 +504,13 @@ wire cvt_fw_nv;
 wire cvt_fw_nx;
 cvt_fw #(
 	.DATA_BITS(DATA_WIDTH),
-	.SIG_BITS (SIG_BITS  ),
-	.EXP_BITS (EXP_BITS+1)
+    .FP_BITS  (FDATA_BITS),
+	.EXP_BITS (EXP_BITS  ),
+    .FRA_BITS (FRA_BITS  )
 ) cvt_x_s(
 	.u_i   (s1_fcvt_wu_d	          ),
-	.sign  (s1_sign_a                 ),
-	.exp   (s1_exp_a                  ),
-	.sig   (s1_sig_a                  ),
+	.fp    (s1_fina                   ),
 	.frm   (s1_frm			          ),
-	.isnan (s1_isQNAN_a || s1_isSNAN_a),
-	.isinf (s1_isINf_a		          ),
 	.w_res (fcss_fresult              ),
 	.wu_res(fcsu_fresult              ),
 	.nv	   (cvt_fw_nv	              ),
@@ -584,10 +557,19 @@ end
 always @(posedge clk or posedge rst) begin
 	if(rst) begin
         is_add_sub        <= 0;
+        is_mul            <= 0;
+
         s4_add_res_sign   <= 0;
         s4_add_res_sig    <= 0;
         s4_add_res_exp    <= 0;
         s4_add_res_fflags <= 0;
+
+        s4_mul_res_sign   <= 0;
+        s4_mul_res_sig    <= 0;
+        s4_mul_res_exp    <= 0;
+        s4_mul_res_fflags <= 0;
+
+        s4_current_state  <= S4_IDLE;
 	end else begin
 		s4_current_state <= s4_next_state;
         if(add_ovalid && s4_ready) begin
@@ -665,54 +647,65 @@ cvt_wf #(
 assign fcxs_fresult = {fcxs_sign, fcxs_exp, fcxs_sig[FRA_BITS-1:0]};
 wire [4:0] fcvt_d_w_fflags = {4'b0, cvt_wf_nx};
 
+localparam [FDATA_BITS-1:0] CANONICAL_NAN_D = 64'h7ff8_0000_0000_0000;
+
 //fclass.s
-wire [FDATA_BITS-1:0] fclass_fresult = isINf_a        &&  sign_a ? 0 :
-                                       isNormalize_a  &&  sign_a ? 1 :
-                                       isUnormalize_a &&  sign_a ? 2 :
-                                       isZero_a       &&  sign_a ? 3 :
-                                       isZero_a       && !sign_a ? 4 :
-                                       isUnormalize_a &&  sign_a ? 5 :
-                                       isNormalize_a  &&  sign_a ? 6 :
-                                       isINf_a        && !sign_a ? 7 :
-                                       isSNAN_a                  ? 8 :
-                                       isQNAN_a                  ? 9 : 0;
-//fclass_fresult == 0;
+wire [FDATA_BITS-1:0] fclass_fresult = isINf_a        &&  sign_a ? 64'h001 :
+                                       isNormalize_a  &&  sign_a ? 64'h002 :
+                                       isUnormalize_a &&  sign_a ? 64'h004 :
+                                       isZero_a       &&  sign_a ? 64'h008 :
+                                       isZero_a       && !sign_a ? 64'h010 :
+                                       isUnormalize_a && !sign_a ? 64'h020 :
+                                       isNormalize_a  && !sign_a ? 64'h040 :
+                                       isINf_a        && !sign_a ? 64'h080 :
+                                       isSNAN_a                  ? 64'h100 :
+                                       isQNAN_a                  ? 64'h200 : 64'h000;
 
 wire                st_sign_a = s0_fina[FDATA_BITS-1          ];
 wire [EXP_BITS-1:0] st_exp_a  = s0_fina[FDATA_BITS-2-:EXP_BITS];
 wire [FRA_BITS-1:0] st_fra_a  = s0_fina[FRA_BITS  -1 :0       ];
 wire                st_sign_b = s0_finb[FDATA_BITS-1          ];
+wire                any_nan   = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b;
+wire                any_snan  = isSNAN_a || isSNAN_b;
+wire                both_zero = (s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0);
+wire                a_eq_b    = (s0_fina == s0_finb) || both_zero;
+wire                a_lt_b    = both_zero                 ? 1'b0      :
+                                (st_sign_a ^ st_sign_b)  ? st_sign_a :
+                                !st_sign_a               ? (s0_fina < s0_finb) : (s0_fina > s0_finb);
+
 //feq
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] feq_fresult = (isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b) ? 0 : (s0_fina == s0_finb) || ((s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0)); 
+wire [FDATA_BITS-1:0] feq_fresult = any_nan ? 0 : a_eq_b;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] feq_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
+wire [4:0] feq_fflags = {any_snan, 4'b0};                                               
 
 //flt
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] flt_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b                     ? 0                 :
-                                    (s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0) ? 0                 :
-                                    st_sign_a ^ st_sign_b                                            ? st_sign_a            :
-                                    !st_sign_a                                                       ? s0_fina < s0_finb : s0_fina > s0_finb;
+wire [FDATA_BITS-1:0] flt_fresult = any_nan ? 0 : a_lt_b;
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] flt_fflags = {isSNAN_a || isSNAN_b, 4'b0};                                               
+wire [4:0] flt_fflags = {any_nan, 4'b0};                                               
 
 //fle
 /* verilator lint_off WIDTHEXPAND */
-wire [FDATA_BITS-1:0] fle_fresult = isSNAN_a || isSNAN_b || isQNAN_a || isQNAN_b                     ? 0                  :
-                                    (s0_fina[FDATA_BITS-2:0] == 0) && (s0_finb[FDATA_BITS-2:0] == 0) ? 1                  :
-                                    st_sign_a ^ st_sign_b                                            ? st_sign_a          :
-                                    !st_sign_a                                                       ? s0_fina <= s0_finb : s0_fina >= s0_finb;
+wire [FDATA_BITS-1:0] fle_fresult = any_nan ? 0 : (a_lt_b || a_eq_b);
 /* verilator lint_on WIDTHEXPAND */
-wire [4:0] fle_fflags = {isSNAN_a || isSNAN_b, 4'b0};
+wire [4:0] fle_fflags = {any_nan, 4'b0};
 
 //fmin
-wire [FDATA_BITS-1:0] fmin_fresult = flt_fresult[0] ? s0_fina : s0_finb;
-wire [4:0] fmin_fflags = flt_fflags;
+wire [FDATA_BITS-1:0] fmin_fresult = (isSNAN_a || isQNAN_a) && (isSNAN_b || isQNAN_b) ? CANONICAL_NAN_D :
+                                     (isSNAN_a || isQNAN_a)                            ? s0_finb         :
+                                     (isSNAN_b || isQNAN_b)                            ? s0_fina         :
+                                     both_zero                                          ? (st_sign_a ? s0_fina : s0_finb) :
+                                     (a_lt_b || a_eq_b)                                ? s0_fina         : s0_finb;
+wire [4:0] fmin_fflags = {any_snan, 4'b0};
 
 //fmax
-wire [FDATA_BITS-1:0] fmax_fresult = flt_fresult[0] ? s0_finb : s0_fina;
-wire [4:0] fmax_fflags = flt_fflags;
+wire [FDATA_BITS-1:0] fmax_fresult = (isSNAN_a || isQNAN_a) && (isSNAN_b || isQNAN_b) ? CANONICAL_NAN_D :
+                                     (isSNAN_a || isQNAN_a)                            ? s0_finb         :
+                                     (isSNAN_b || isQNAN_b)                            ? s0_fina         :
+                                     both_zero                                          ? (st_sign_a ? s0_finb : s0_fina) :
+                                     a_lt_b                                             ? s0_finb         : s0_fina;
+wire [4:0] fmax_fflags = {any_snan, 4'b0};
 
 //fsgnj
 wire [FDATA_BITS-1:0] fsgnj_fresult = {st_sign_b, st_exp_a, st_fra_a}; //fsgnj_fflags = 0;

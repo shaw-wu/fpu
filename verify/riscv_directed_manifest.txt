@@ -1,0 +1,163 @@
+001 fadd.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=7ff8000000000000 flags=00 note=quiet NaN canonicalization
+002 fadd.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=7ff8000000000000 flags=10 note=signaling NaN invalid
+003 fadd.d rm=RNE a=7ff0000000000000 b=fff0000000000000 exp=7ff8000000000000 flags=10 note=invalid +inf + -inf
+004 fadd.d rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule
+005 fadd.d rm=RTZ a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule
+006 fadd.d rm=RDN a=0000000000000000 b=8000000000000000 exp=8000000000000000 flags=00 note=zero-sign rule
+007 fadd.d rm=RUP a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule
+008 fadd.d rm=RMM a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule
+009 fadd.d rm=RNE a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow
+010 fadd.d rm=RTZ a=7fefffffffffffff b=7fefffffffffffff exp=7fefffffffffffff flags=05 note=positive overflow
+011 fadd.d rm=RDN a=7fefffffffffffff b=7fefffffffffffff exp=7fefffffffffffff flags=05 note=positive overflow
+012 fadd.d rm=RUP a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow
+013 fadd.d rm=RMM a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow
+014 fadd.d rm=RNE a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=tie rounding at 1.0
+015 fadd.d rm=RTZ a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=tie rounding at 1.0
+016 fadd.d rm=RDN a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=tie rounding at 1.0
+017 fadd.d rm=RUP a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000001 flags=01 note=tie rounding at 1.0
+018 fadd.d rm=RMM a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000001 flags=01 note=tie rounding at 1.0
+019 fadd.d rm=RNE a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just-above-tie rounding
+020 fadd.d rm=RTZ a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000000 flags=01 note=just-above-tie rounding
+021 fadd.d rm=RDN a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000000 flags=01 note=just-above-tie rounding
+022 fadd.d rm=RUP a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just-above-tie rounding
+023 fadd.d rm=RMM a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just-above-tie rounding
+024 fadd.d rm=RNE a=0010000000000000 b=800fffffffffffff exp=0000000000000001 flags=00 note=normal/subnormal boundary
+025 fsub.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=7ff8000000000000 flags=00 note=quiet NaN canonicalization
+026 fsub.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=7ff8000000000000 flags=10 note=signaling NaN invalid
+027 fsub.d rm=RNE a=7ff0000000000000 b=7ff0000000000000 exp=7ff8000000000000 flags=10 note=invalid inf - inf
+028 fsub.d rm=RNE a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for exact zero
+029 fsub.d rm=RTZ a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for exact zero
+030 fsub.d rm=RDN a=0000000000000000 b=0000000000000000 exp=8000000000000000 flags=00 note=zero-sign rule for exact zero
+031 fsub.d rm=RUP a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for exact zero
+032 fsub.d rm=RMM a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for exact zero
+033 fsub.d rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for +0 - -0
+034 fsub.d rm=RTZ a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for +0 - -0
+035 fsub.d rm=RDN a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for +0 - -0
+036 fsub.d rm=RUP a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for +0 - -0
+037 fsub.d rm=RMM a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=zero-sign rule for +0 - -0
+038 fsub.d rm=RNE a=7fefffffffffffff b=ffefffffffffffff exp=7ff0000000000000 flags=05 note=overflow after subtracting a negative
+039 fsub.d rm=RTZ a=7fefffffffffffff b=ffefffffffffffff exp=7fefffffffffffff flags=05 note=overflow after subtracting a negative
+040 fsub.d rm=RDN a=7fefffffffffffff b=ffefffffffffffff exp=7fefffffffffffff flags=05 note=overflow after subtracting a negative
+041 fsub.d rm=RUP a=7fefffffffffffff b=ffefffffffffffff exp=7ff0000000000000 flags=05 note=overflow after subtracting a negative
+042 fsub.d rm=RMM a=7fefffffffffffff b=ffefffffffffffff exp=7ff0000000000000 flags=05 note=overflow after subtracting a negative
+043 fsub.d rm=RNE a=3ff0000000000000 b=3ca0000000000000 exp=3fefffffffffffff flags=00 note=tie rounding at 1.0 - 0.5 ulp
+044 fsub.d rm=RTZ a=3ff0000000000000 b=3ca0000000000000 exp=3fefffffffffffff flags=00 note=tie rounding at 1.0 - 0.5 ulp
+045 fsub.d rm=RDN a=3ff0000000000000 b=3ca0000000000000 exp=3fefffffffffffff flags=00 note=tie rounding at 1.0 - 0.5 ulp
+046 fsub.d rm=RUP a=3ff0000000000000 b=3ca0000000000000 exp=3fefffffffffffff flags=00 note=tie rounding at 1.0 - 0.5 ulp
+047 fsub.d rm=RMM a=3ff0000000000000 b=3ca0000000000000 exp=3fefffffffffffff flags=00 note=tie rounding at 1.0 - 0.5 ulp
+048 fsub.d rm=RNE a=3ff0000000000000 b=3ca0000000000001 exp=3fefffffffffffff flags=01 note=just-above-tie rounding
+049 fsub.d rm=RTZ a=3ff0000000000000 b=3ca0000000000001 exp=3feffffffffffffe flags=01 note=just-above-tie rounding
+050 fsub.d rm=RDN a=3ff0000000000000 b=3ca0000000000001 exp=3feffffffffffffe flags=01 note=just-above-tie rounding
+051 fsub.d rm=RUP a=3ff0000000000000 b=3ca0000000000001 exp=3fefffffffffffff flags=01 note=just-above-tie rounding
+052 fsub.d rm=RMM a=3ff0000000000000 b=3ca0000000000001 exp=3fefffffffffffff flags=01 note=just-above-tie rounding
+053 fmul.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=7ff8000000000000 flags=00 note=quiet NaN canonicalization
+054 fmul.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=7ff8000000000000 flags=10 note=signaling NaN invalid
+055 fmul.d rm=RNE a=7ff0000000000000 b=0000000000000000 exp=7ff8000000000000 flags=10 note=invalid inf * 0
+056 fmul.d rm=RNE a=7ff0000000000000 b=4000000000000000 exp=7ff0000000000000 flags=00 note=inf propagation
+057 fmul.d rm=RNE a=8000000000000000 b=4000000000000000 exp=8000000000000000 flags=00 note=signed zero
+058 fmul.d rm=RNE a=7fefffffffffffff b=4000000000000000 exp=7ff0000000000000 flags=05 note=overflow under all rounding modes
+059 fmul.d rm=RTZ a=7fefffffffffffff b=4000000000000000 exp=7fefffffffffffff flags=05 note=overflow under all rounding modes
+060 fmul.d rm=RDN a=7fefffffffffffff b=4000000000000000 exp=7fefffffffffffff flags=05 note=overflow under all rounding modes
+061 fmul.d rm=RUP a=7fefffffffffffff b=4000000000000000 exp=7ff0000000000000 flags=05 note=overflow under all rounding modes
+062 fmul.d rm=RMM a=7fefffffffffffff b=4000000000000000 exp=7ff0000000000000 flags=05 note=overflow under all rounding modes
+063 fmul.d rm=RNE a=0000000000000001 b=3fe0000000000000 exp=0000000000000000 flags=03 note=subnormal underflow
+064 fmul.d rm=RTZ a=0000000000000001 b=3fe0000000000000 exp=0000000000000000 flags=03 note=subnormal underflow
+065 fmul.d rm=RDN a=0000000000000001 b=3fe0000000000000 exp=0000000000000000 flags=03 note=subnormal underflow
+066 fmul.d rm=RUP a=0000000000000001 b=3fe0000000000000 exp=0000000000000001 flags=03 note=subnormal underflow
+067 fmul.d rm=RMM a=0000000000000001 b=3fe0000000000000 exp=0000000000000001 flags=03 note=subnormal underflow
+068 fmul.d rm=RNE a=3ff8000000000000 b=4000000000000000 exp=4008000000000000 flags=00 note=exact 1.5 * 2
+069 fdiv.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=7ff8000000000000 flags=00 note=quiet NaN canonicalization
+070 fdiv.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=7ff8000000000000 flags=10 note=signaling NaN invalid
+071 fdiv.d rm=RNE a=7ff0000000000000 b=7ff0000000000000 exp=7ff8000000000000 flags=10 note=invalid inf / inf
+072 fdiv.d rm=RNE a=0000000000000000 b=0000000000000000 exp=7ff8000000000000 flags=10 note=invalid 0 / 0
+073 fdiv.d rm=RNE a=7ff0000000000000 b=4000000000000000 exp=7ff0000000000000 flags=00 note=inf / finite
+074 fdiv.d rm=RNE a=4000000000000000 b=7ff0000000000000 exp=0000000000000000 flags=00 note=finite / inf
+075 fdiv.d rm=RNE a=4000000000000000 b=0000000000000000 exp=7ff0000000000000 flags=08 note=divide by zero
+076 fdiv.d rm=RNE a=0000000000000000 b=4000000000000000 exp=0000000000000000 flags=00 note=zero divided by finite
+077 fdiv.d rm=RNE a=3ff0000000000000 b=4000000000000000 exp=3fe0000000000000 flags=00 note=exact 1 / 2
+078 fdiv.d rm=RNE a=3ff0000000000000 b=4008000000000000 exp=3fd5555555555555 flags=01 note=inexact 1 / 3 rounding
+079 fdiv.d rm=RTZ a=3ff0000000000000 b=4008000000000000 exp=3fd5555555555555 flags=01 note=inexact 1 / 3 rounding
+080 fdiv.d rm=RDN a=3ff0000000000000 b=4008000000000000 exp=3fd5555555555555 flags=01 note=inexact 1 / 3 rounding
+081 fdiv.d rm=RUP a=3ff0000000000000 b=4008000000000000 exp=3fd5555555555556 flags=01 note=inexact 1 / 3 rounding
+082 fdiv.d rm=RMM a=3ff0000000000000 b=4008000000000000 exp=3fd5555555555555 flags=01 note=inexact 1 / 3 rounding
+083 feq.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=0000000000000000 flags=00 note=qNaN is quiet for feq
+084 feq.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=0000000000000000 flags=10 note=sNaN invalid for feq
+085 feq.d rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000001 flags=00 note=+0 == -0
+086 feq.d rm=RNE a=3ff0000000000000 b=3ff0000000000000 exp=0000000000000001 flags=00 note=ordered equality
+087 feq.d rm=RNE a=3ff0000000000000 b=4000000000000000 exp=0000000000000000 flags=00 note=ordered inequality
+088 flt.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=0000000000000000 flags=10 note=qNaN invalid for flt
+089 flt.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=0000000000000000 flags=10 note=sNaN invalid for flt
+090 flt.d rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=-0 is not less than +0
+091 flt.d rm=RNE a=bff0000000000000 b=3ff0000000000000 exp=0000000000000001 flags=00 note=negative less than positive
+092 flt.d rm=RNE a=4000000000000000 b=3ff0000000000000 exp=0000000000000000 flags=00 note=ordered false compare
+093 fle.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=0000000000000000 flags=10 note=qNaN invalid for fle
+094 fle.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=0000000000000000 flags=10 note=sNaN invalid for fle
+095 fle.d rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000001 flags=00 note=+0 <= -0
+096 fle.d rm=RNE a=3ff0000000000000 b=3ff0000000000000 exp=0000000000000001 flags=00 note=ordered equality
+097 fle.d rm=RNE a=4000000000000000 b=3ff0000000000000 exp=0000000000000000 flags=00 note=ordered false compare
+098 fsgnj.d rm=RNE a=3ff0000000000000 b=bff0000000000000 exp=bff0000000000000 flags=00 note=copy sign from operand B
+099 fsgnj.d rm=RNE a=7ff8000000000000 b=bff0000000000000 exp=fff8000000000000 flags=00 note=sign-injection preserves NaN payload
+100 fsgnjn.d rm=RNE a=3ff0000000000000 b=bff0000000000000 exp=3ff0000000000000 flags=00 note=invert sign of operand B
+101 fsgnjn.d rm=RNE a=7ff8000000000000 b=bff0000000000000 exp=7ff8000000000000 flags=00 note=sign-inversion preserves NaN payload
+102 fsgnjx.d rm=RNE a=3ff0000000000000 b=bff0000000000000 exp=bff0000000000000 flags=00 note=xor signs
+103 fsgnjx.d rm=RNE a=7ff8000000000000 b=bff0000000000000 exp=fff8000000000000 flags=00 note=sign-xor preserves NaN payload
+104 fcvt.w.d rm=RNE a=7ff8000000000000 b=0000000000000000 exp=000000007fffffff flags=10 note=NaN to int invalid
+105 fcvt.w.d rm=RNE a=7ff0000000000000 b=0000000000000000 exp=000000007fffffff flags=10 note=+inf to int invalid
+106 fcvt.w.d rm=RNE a=fff0000000000000 b=0000000000000000 exp=0000000080000000 flags=10 note=-inf to int invalid
+107 fcvt.w.d rm=RNE a=3ff8000000000000 b=0000000000000000 exp=0000000000000002 flags=01 note=1.5 rounding modes
+108 fcvt.w.d rm=RTZ a=3ff8000000000000 b=0000000000000000 exp=0000000000000001 flags=01 note=1.5 rounding modes
+109 fcvt.w.d rm=RDN a=3ff8000000000000 b=0000000000000000 exp=0000000000000001 flags=01 note=1.5 rounding modes
+110 fcvt.w.d rm=RUP a=3ff8000000000000 b=0000000000000000 exp=0000000000000002 flags=01 note=1.5 rounding modes
+111 fcvt.w.d rm=RMM a=3ff8000000000000 b=0000000000000000 exp=0000000000000002 flags=01 note=1.5 rounding modes
+112 fcvt.w.d rm=RNE a=bfe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.5 rounding modes
+113 fcvt.w.d rm=RTZ a=bfe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.5 rounding modes
+114 fcvt.w.d rm=RDN a=bfe0000000000000 b=0000000000000000 exp=00000000ffffffff flags=01 note=-0.5 rounding modes
+115 fcvt.w.d rm=RUP a=bfe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.5 rounding modes
+116 fcvt.w.d rm=RMM a=bfe0000000000000 b=0000000000000000 exp=00000000ffffffff flags=01 note=-0.5 rounding modes
+117 fcvt.w.d rm=RNE a=41dfffffffc00000 b=0000000000000000 exp=000000007fffffff flags=00 note=largest exact signed int
+118 fcvt.w.d rm=RNE a=41e0000000000000 b=0000000000000000 exp=000000007fffffff flags=10 note=positive overflow to int32
+119 fcvt.w.d rm=RNE a=c1e0000000000000 b=0000000000000000 exp=0000000080000000 flags=00 note=most negative exact signed int
+120 fcvt.wu.d rm=RNE a=7ff8000000000000 b=0000000000000000 exp=00000000ffffffff flags=10 note=NaN to uint invalid
+121 fcvt.wu.d rm=RNE a=7ff0000000000000 b=0000000000000000 exp=00000000ffffffff flags=10 note=+inf to uint invalid
+122 fcvt.wu.d rm=RNE a=fff0000000000000 b=0000000000000000 exp=0000000000000000 flags=10 note=-inf to uint invalid
+123 fcvt.wu.d rm=RNE a=3fe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=0.5 rounding modes
+124 fcvt.wu.d rm=RTZ a=3fe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=0.5 rounding modes
+125 fcvt.wu.d rm=RDN a=3fe0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=0.5 rounding modes
+126 fcvt.wu.d rm=RUP a=3fe0000000000000 b=0000000000000000 exp=0000000000000001 flags=01 note=0.5 rounding modes
+127 fcvt.wu.d rm=RMM a=3fe0000000000000 b=0000000000000000 exp=0000000000000001 flags=01 note=0.5 rounding modes
+128 fcvt.wu.d rm=RNE a=bfd0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.25 unsigned rounding
+129 fcvt.wu.d rm=RTZ a=bfd0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.25 unsigned rounding
+130 fcvt.wu.d rm=RDN a=bfd0000000000000 b=0000000000000000 exp=0000000000000000 flags=10 note=-0.25 unsigned rounding
+131 fcvt.wu.d rm=RUP a=bfd0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.25 unsigned rounding
+132 fcvt.wu.d rm=RMM a=bfd0000000000000 b=0000000000000000 exp=0000000000000000 flags=01 note=-0.25 unsigned rounding
+133 fcvt.wu.d rm=RNE a=41efffffffe00000 b=0000000000000000 exp=00000000ffffffff flags=00 note=largest exact uint32
+134 fcvt.wu.d rm=RNE a=41f0000000000000 b=0000000000000000 exp=00000000ffffffff flags=10 note=positive overflow to uint32
+135 fcvt.d.w rm=RNE a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero int to fp64
+136 fcvt.d.w rm=RNE a=0000000000000001 b=0000000000000000 exp=3ff0000000000000 flags=00 note=positive int to fp64
+137 fcvt.d.w rm=RNE a=00000000ffffffff b=0000000000000000 exp=bff0000000000000 flags=00 note=-1 to fp64
+138 fcvt.d.w rm=RNE a=000000007fffffff b=0000000000000000 exp=41dfffffffc00000 flags=00 note=INT32_MAX to fp64
+139 fcvt.d.w rm=RNE a=0000000080000000 b=0000000000000000 exp=c1e0000000000000 flags=00 note=INT32_MIN to fp64
+140 fcvt.d.wu rm=RNE a=0000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=zero uint to fp64
+141 fcvt.d.wu rm=RNE a=0000000000000001 b=0000000000000000 exp=3ff0000000000000 flags=00 note=positive uint to fp64
+142 fcvt.d.wu rm=RNE a=0000000080000000 b=0000000000000000 exp=41e0000000000000 flags=00 note=high-bit uint to fp64
+143 fcvt.d.wu rm=RNE a=00000000ffffffff b=0000000000000000 exp=41efffffffe00000 flags=00 note=UINT32_MAX to fp64
+144 fclass.d rm=RNE a=fff0000000000000 b=0000000000000000 exp=0000000000000001 flags=00 note=class -inf
+145 fclass.d rm=RNE a=ffefffffffffffff b=0000000000000000 exp=0000000000000002 flags=00 note=class negative normal
+146 fclass.d rm=RNE a=800fffffffffffff b=0000000000000000 exp=0000000000000004 flags=00 note=class negative subnormal
+147 fclass.d rm=RNE a=8000000000000000 b=0000000000000000 exp=0000000000000008 flags=00 note=class -0
+148 fclass.d rm=RNE a=0000000000000000 b=0000000000000000 exp=0000000000000010 flags=00 note=class +0
+149 fclass.d rm=RNE a=0000000000000001 b=0000000000000000 exp=0000000000000020 flags=00 note=class positive subnormal
+150 fclass.d rm=RNE a=3ff0000000000000 b=0000000000000000 exp=0000000000000040 flags=00 note=class positive normal
+151 fclass.d rm=RNE a=7ff0000000000000 b=0000000000000000 exp=0000000000000080 flags=00 note=class +inf
+152 fclass.d rm=RNE a=7ff0000000000001 b=0000000000000000 exp=0000000000000100 flags=00 note=class sNaN
+153 fclass.d rm=RNE a=7ff8000000000000 b=0000000000000000 exp=0000000000000200 flags=00 note=class qNaN
+154 fmin.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=3ff0000000000000 flags=00 note=single qNaN returns numeric operand
+155 fmin.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=3ff0000000000000 flags=10 note=single sNaN returns numeric operand with NV
+156 fmin.d rm=RNE a=7ff8000000000000 b=7ff8000000000000 exp=7ff8000000000000 flags=00 note=double NaN returns canonical NaN
+157 fmin.d rm=RNE a=8000000000000000 b=0000000000000000 exp=8000000000000000 flags=00 note=min prefers -0
+158 fmin.d rm=RNE a=3ff0000000000000 b=4000000000000000 exp=3ff0000000000000 flags=00 note=ordered minimum
+159 fmax.d rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=3ff0000000000000 flags=00 note=single qNaN returns numeric operand
+160 fmax.d rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=3ff0000000000000 flags=10 note=single sNaN returns numeric operand with NV
+161 fmax.d rm=RNE a=7ff8000000000000 b=7ff8000000000000 exp=7ff8000000000000 flags=00 note=double NaN returns canonical NaN
+162 fmax.d rm=RNE a=8000000000000000 b=0000000000000000 exp=0000000000000000 flags=00 note=max prefers +0
+163 fmax.d rm=RNE a=3ff0000000000000 b=4000000000000000 exp=4000000000000000 flags=00 note=ordered maximum

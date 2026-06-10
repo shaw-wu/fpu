@@ -14,8 +14,8 @@ tasks = {
     "fmul.d":     [0x02, "f64_mul", 2],
     "fdiv.d":     [0x03, "f64_div", 2],
     "feq.d":      [0x04, "f64_eq_quiet",  2],
-    "flt.d":      [0x05, "f64_lt_quiet",  2],
-    "fle.d":      [0x06, "f64_le_quiet",  2], # 比较指令通常不收 frm 影响，但为了统一格式也遍历一次
+    "flt.d":      [0x05, "f64_lt",  2],
+    "fle.d":      [0x06, "f64_le",  2], # RISC-V flt/fle 对任意 NaN 都置 NV，不能用 quiet 版本
     "fcvt.w.d":   [0x0a, "f64_to_i32", 1],
     "fcvt.wu.d":  [0x0b, "f64_to_ui32",1],
     "fcvt.d.w":   [0x0c, "i32_to_f64", 1],

@@ -104,6 +104,7 @@
 ├── Makefile                  # 构建、运行、波形查看
 ├── test_gen.py               # 生成 `fpu_test_suite.tmp` 的脚本
 ├── testfloat_gen             # 参考结果生成器
+├── verify/                   # RISC-V 语义验证脚本与说明
 ├── filter_nan.py             # 测试/日志辅助脚本
 ├── build/                    # Verilator 构建输出目录（生成）
 └── fpu_context_log.md        # 项目背景与阶段性记录
@@ -149,6 +150,38 @@ make wave
 - 默认仿真时间由 `SIM_TIME` 控制，缺省值为 `50000000`
 - 启用 `ENABLE_WAVEFORM=1` 时，会生成 `build/dump.vcd`
 
+## RISC-V 语义验证快速使用
+
+如果你的目标是验证“当前 RTL 是否与 RISC-V 语义对齐”，推荐优先使用 `verify/` 目录下的新框架，而不是直接使用旧的 `test_gen.py`。
+
+最短使用流程如下：
+
+```bash
+# 1. 生成定向边界向量（可选，但建议保留）
+python3 verify/gen_directed_riscv.py
+
+# 2. 生成混合随机 + 定向的 RISC-V 语义测试集
+python3 verify/gen_random_riscv.py \
+  --include-directed \
+  --count-per-rm 16 \
+  --seed 1 \
+  --cross-check-testfloat \
+  --output fpu_test_suite.tmp
+
+# 3. 运行 RTL 回归
+make run SIM_TIME=50000000
+```
+
+这套流程的特点是：
+
+- 期望结果不是简单照搬 raw `testfloat_gen` 输出
+- 长路径算术会结合 `testfloat_gen` 和本地 RISC-V oracle
+- `flt.d` / `fle.d`、`fcvt.w.d` / `fcvt.wu.d` 这类容易与 raw testfloat 语义不完全一致的运算，已经在验证框架里做了专门处理
+
+更完整的说明见：
+
+- `verify/README.md`
+
 ## 测试向量格式
 
 `vsrc/testbench.v` 会从仓库根目录读取 `fpu_test_suite.tmp`，每一行格式如下：
@@ -192,6 +225,15 @@ fpu_test_suite.tmp
 
 - `test_gen.py`：组织测试任务、舍入模式、输出格式并打乱顺序
 - `testfloat_gen`：外部参考向量生成器，用于给出 golden result 和 `fflags`
+
+补充说明：
+
+- `test_gen.py` 更适合作为基础向量生成入口
+- 如果你的目标是按 **RISC-V 语义** 做系统验证，推荐改用 `verify/gen_random_riscv.py`
+- 原因是某些运算不能直接把 raw `testfloat_gen` 输出当作最终 golden，例如：
+  - `flt.d` / `fle.d`
+  - `fcvt.w.d` / `fcvt.wu.d`
+- 这些差异的详细说明见 `verify/README.md`
 
 ### 2. 运行测试集
 
