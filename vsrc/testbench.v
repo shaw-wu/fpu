@@ -42,6 +42,7 @@ integer recv_cnt   = 0;
 integer file_in;
 integer file_log;
 integer status;
+reg input_done;
 
 reg [FDATA_WIDTH-1:0] exp_res;
 reg [4:0]             exp_flag;
@@ -79,6 +80,7 @@ initial begin
     rst     = 1;
     i_valid = 0;
     o_ready = 1;
+    input_done = 0;
 
     //sel = 5'd6;       // FADD
     //frm = 3'd0;       // RNE
@@ -101,37 +103,32 @@ initial begin
     $display("===== FPU PIPELINE TEST START =====");
     $fdisplay(file_log,"===== FPU TEST START =====");
 
-    while(!$feof(file_in)) begin
-
+    forever begin
         @(posedge clk);
-        if(i_ready) begin
 
+        if(!input_done && (!i_valid || i_ready)) begin
             #1
             status = $fscanf(file_in,"%h %h %h %h %h %h\n",
                              fina, finb, exp_res, exp_flag, frm, sel);
 
-            if(status==6) begin
-
-                // push queue
-                exp_res_q[tail]  = exp_res;
-                exp_flag_q[tail] = exp_flag;
-                exp_sel_q[tail] = sel;
+            if(status == 6) begin
+                exp_res_q[tail]   = exp_res;
+                exp_flag_q[tail]  = exp_flag;
+                exp_sel_q[tail]   = sel;
                 tail = tail + 1;
                 vector_cnt = vector_cnt + 1;
 
                 i_valid = 1;
 
-
                 if(vector_cnt % 1000 == 0)
                     $display("[SEND] %0d vectors",vector_cnt);
-
+            end else begin
+                i_valid = 0;
+                input_done = 1;
+                $display("All vectors issued = %0d",vector_cnt);
             end
         end
     end
-    i_valid = 0;
-
-    $display("All vectors issued = %0d",vector_cnt);
-
 end
 // ======== 输出线程（流水接收）=======
 initial begin
@@ -166,9 +163,9 @@ initial begin
             if(recv_cnt % 100 == 0)
                 $display("[RECV] %0d results  error=%0d",
                          recv_cnt,error_cnt);
-        // 自动结束
-        if($feof(file_in)) begin
+        end
 
+        if(input_done && (recv_cnt == vector_cnt)) begin
             $display("==================================");
             $display("TEST FINISH");
             $display("Total  = %0d",vector_cnt);
@@ -184,9 +181,6 @@ initial begin
 
             #(CLK_PERIOD*20);
             $finish;
-        end
-
-
         end
     end
 
