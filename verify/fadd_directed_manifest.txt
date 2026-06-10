@@ -1,0 +1,66 @@
+001 qnan_plus_one rm=RNE a=7ff8000000000000 b=3ff0000000000000 exp=7ff8000000000000 flags=00 note=quiet NaN should return canonical NaN without NV
+002 snan_plus_one rm=RNE a=7ff0000000000001 b=3ff0000000000000 exp=7ff8000000000000 flags=10 note=signaling NaN should return canonical NaN with NV
+003 pos_inf_plus_neg_inf rm=RNE a=7ff0000000000000 b=fff0000000000000 exp=7ff8000000000000 flags=10 note=invalid inf + (-inf) must raise NV
+004 pos_inf_plus_one rm=RNE a=7ff0000000000000 b=3ff0000000000000 exp=7ff0000000000000 flags=00 note=infinite operand should pass through without flags
+005 pos_zero_plus_neg_zero rm=RNE a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=exact zero sign depends on rounding mode for opposite-signed zeros
+006 pos_zero_plus_neg_zero rm=RTZ a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=exact zero sign depends on rounding mode for opposite-signed zeros
+007 pos_zero_plus_neg_zero rm=RDN a=0000000000000000 b=8000000000000000 exp=8000000000000000 flags=00 note=exact zero sign depends on rounding mode for opposite-signed zeros
+008 pos_zero_plus_neg_zero rm=RUP a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=exact zero sign depends on rounding mode for opposite-signed zeros
+009 pos_zero_plus_neg_zero rm=RMM a=0000000000000000 b=8000000000000000 exp=0000000000000000 flags=00 note=exact zero sign depends on rounding mode for opposite-signed zeros
+010 min_sub_plus_neg_min_sub rm=RNE a=0000000000000001 b=8000000000000001 exp=0000000000000000 flags=00 note=exact cancellation should hit signed-zero rule
+011 min_sub_plus_neg_min_sub rm=RTZ a=0000000000000001 b=8000000000000001 exp=0000000000000000 flags=00 note=exact cancellation should hit signed-zero rule
+012 min_sub_plus_neg_min_sub rm=RDN a=0000000000000001 b=8000000000000001 exp=8000000000000000 flags=00 note=exact cancellation should hit signed-zero rule
+013 min_sub_plus_neg_min_sub rm=RUP a=0000000000000001 b=8000000000000001 exp=0000000000000000 flags=00 note=exact cancellation should hit signed-zero rule
+014 min_sub_plus_neg_min_sub rm=RMM a=0000000000000001 b=8000000000000001 exp=0000000000000000 flags=00 note=exact cancellation should hit signed-zero rule
+015 min_normal_minus_max_sub rm=RNE a=0010000000000000 b=800fffffffffffff exp=0000000000000001 flags=00 note=normal/subnormal boundary should produce +min_sub
+016 neg_min_normal_plus_max_sub rm=RNE a=8010000000000000 b=000fffffffffffff exp=8000000000000001 flags=00 note=normal/subnormal boundary should produce -min_sub
+017 max_finite_plus_max_finite rm=RNE a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow should respect rm-specific saturation
+018 max_finite_plus_max_finite rm=RTZ a=7fefffffffffffff b=7fefffffffffffff exp=7fefffffffffffff flags=05 note=positive overflow should respect rm-specific saturation
+019 max_finite_plus_max_finite rm=RDN a=7fefffffffffffff b=7fefffffffffffff exp=7fefffffffffffff flags=05 note=positive overflow should respect rm-specific saturation
+020 max_finite_plus_max_finite rm=RUP a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow should respect rm-specific saturation
+021 max_finite_plus_max_finite rm=RMM a=7fefffffffffffff b=7fefffffffffffff exp=7ff0000000000000 flags=05 note=positive overflow should respect rm-specific saturation
+022 neg_max_finite_plus_neg_max_finite rm=RNE a=ffefffffffffffff b=ffefffffffffffff exp=fff0000000000000 flags=05 note=negative overflow should respect rm-specific saturation
+023 neg_max_finite_plus_neg_max_finite rm=RTZ a=ffefffffffffffff b=ffefffffffffffff exp=ffefffffffffffff flags=05 note=negative overflow should respect rm-specific saturation
+024 neg_max_finite_plus_neg_max_finite rm=RDN a=ffefffffffffffff b=ffefffffffffffff exp=fff0000000000000 flags=05 note=negative overflow should respect rm-specific saturation
+025 neg_max_finite_plus_neg_max_finite rm=RUP a=ffefffffffffffff b=ffefffffffffffff exp=ffefffffffffffff flags=05 note=negative overflow should respect rm-specific saturation
+026 neg_max_finite_plus_neg_max_finite rm=RMM a=ffefffffffffffff b=ffefffffffffffff exp=fff0000000000000 flags=05 note=negative overflow should respect rm-specific saturation
+027 one_plus_prev_half_ulp rm=RNE a=3ff0000000000000 b=3c9fffffffffffff exp=3ff0000000000000 flags=01 note=just below tie at 0.5 ulp around 1.0
+028 one_plus_prev_half_ulp rm=RTZ a=3ff0000000000000 b=3c9fffffffffffff exp=3ff0000000000000 flags=01 note=just below tie at 0.5 ulp around 1.0
+029 one_plus_prev_half_ulp rm=RDN a=3ff0000000000000 b=3c9fffffffffffff exp=3ff0000000000000 flags=01 note=just below tie at 0.5 ulp around 1.0
+030 one_plus_prev_half_ulp rm=RUP a=3ff0000000000000 b=3c9fffffffffffff exp=3ff0000000000001 flags=01 note=just below tie at 0.5 ulp around 1.0
+031 one_plus_prev_half_ulp rm=RMM a=3ff0000000000000 b=3c9fffffffffffff exp=3ff0000000000000 flags=01 note=just below tie at 0.5 ulp around 1.0
+032 one_plus_half_ulp rm=RNE a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=exact tie at 0.5 ulp around 1.0
+033 one_plus_half_ulp rm=RTZ a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=exact tie at 0.5 ulp around 1.0
+034 one_plus_half_ulp rm=RDN a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000000 flags=01 note=exact tie at 0.5 ulp around 1.0
+035 one_plus_half_ulp rm=RUP a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000001 flags=01 note=exact tie at 0.5 ulp around 1.0
+036 one_plus_half_ulp rm=RMM a=3ff0000000000000 b=3ca0000000000000 exp=3ff0000000000001 flags=01 note=exact tie at 0.5 ulp around 1.0
+037 one_plus_next_half_ulp rm=RNE a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just above tie at 0.5 ulp around 1.0
+038 one_plus_next_half_ulp rm=RTZ a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000000 flags=01 note=just above tie at 0.5 ulp around 1.0
+039 one_plus_next_half_ulp rm=RDN a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000000 flags=01 note=just above tie at 0.5 ulp around 1.0
+040 one_plus_next_half_ulp rm=RUP a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just above tie at 0.5 ulp around 1.0
+041 one_plus_next_half_ulp rm=RMM a=3ff0000000000000 b=3ca0000000000001 exp=3ff0000000000001 flags=01 note=just above tie at 0.5 ulp around 1.0
+042 neg_one_plus_neg_prev_half_ulp rm=RNE a=bff0000000000000 b=bc9fffffffffffff exp=bff0000000000000 flags=01 note=negative just-below-tie rounding stress
+043 neg_one_plus_neg_prev_half_ulp rm=RTZ a=bff0000000000000 b=bc9fffffffffffff exp=bff0000000000000 flags=01 note=negative just-below-tie rounding stress
+044 neg_one_plus_neg_prev_half_ulp rm=RDN a=bff0000000000000 b=bc9fffffffffffff exp=bff0000000000001 flags=01 note=negative just-below-tie rounding stress
+045 neg_one_plus_neg_prev_half_ulp rm=RUP a=bff0000000000000 b=bc9fffffffffffff exp=bff0000000000000 flags=01 note=negative just-below-tie rounding stress
+046 neg_one_plus_neg_prev_half_ulp rm=RMM a=bff0000000000000 b=bc9fffffffffffff exp=bff0000000000000 flags=01 note=negative just-below-tie rounding stress
+047 neg_one_plus_neg_half_ulp rm=RNE a=bff0000000000000 b=bca0000000000000 exp=bff0000000000000 flags=01 note=negative exact tie rounding stress
+048 neg_one_plus_neg_half_ulp rm=RTZ a=bff0000000000000 b=bca0000000000000 exp=bff0000000000000 flags=01 note=negative exact tie rounding stress
+049 neg_one_plus_neg_half_ulp rm=RDN a=bff0000000000000 b=bca0000000000000 exp=bff0000000000001 flags=01 note=negative exact tie rounding stress
+050 neg_one_plus_neg_half_ulp rm=RUP a=bff0000000000000 b=bca0000000000000 exp=bff0000000000000 flags=01 note=negative exact tie rounding stress
+051 neg_one_plus_neg_half_ulp rm=RMM a=bff0000000000000 b=bca0000000000000 exp=bff0000000000001 flags=01 note=negative exact tie rounding stress
+052 neg_one_plus_neg_next_half_ulp rm=RNE a=bff0000000000000 b=bca0000000000001 exp=bff0000000000001 flags=01 note=negative just-above-tie rounding stress
+053 neg_one_plus_neg_next_half_ulp rm=RTZ a=bff0000000000000 b=bca0000000000001 exp=bff0000000000000 flags=01 note=negative just-above-tie rounding stress
+054 neg_one_plus_neg_next_half_ulp rm=RDN a=bff0000000000000 b=bca0000000000001 exp=bff0000000000001 flags=01 note=negative just-above-tie rounding stress
+055 neg_one_plus_neg_next_half_ulp rm=RUP a=bff0000000000000 b=bca0000000000001 exp=bff0000000000000 flags=01 note=negative just-above-tie rounding stress
+056 neg_one_plus_neg_next_half_ulp rm=RMM a=bff0000000000000 b=bca0000000000001 exp=bff0000000000001 flags=01 note=negative just-above-tie rounding stress
+057 one_plus_min_sub rm=RNE a=3ff0000000000000 b=0000000000000001 exp=3ff0000000000000 flags=01 note=tiny addend absorbed by 1.0, but directed modes still differ in intent
+058 one_plus_min_sub rm=RTZ a=3ff0000000000000 b=0000000000000001 exp=3ff0000000000000 flags=01 note=tiny addend absorbed by 1.0, but directed modes still differ in intent
+059 one_plus_min_sub rm=RDN a=3ff0000000000000 b=0000000000000001 exp=3ff0000000000000 flags=01 note=tiny addend absorbed by 1.0, but directed modes still differ in intent
+060 one_plus_min_sub rm=RUP a=3ff0000000000000 b=0000000000000001 exp=3ff0000000000001 flags=01 note=tiny addend absorbed by 1.0, but directed modes still differ in intent
+061 one_plus_min_sub rm=RMM a=3ff0000000000000 b=0000000000000001 exp=3ff0000000000000 flags=01 note=tiny addend absorbed by 1.0, but directed modes still differ in intent
+062 neg_one_plus_neg_min_sub rm=RNE a=bff0000000000000 b=8000000000000001 exp=bff0000000000000 flags=01 note=tiny negative addend absorbed by -1.0
+063 neg_one_plus_neg_min_sub rm=RTZ a=bff0000000000000 b=8000000000000001 exp=bff0000000000000 flags=01 note=tiny negative addend absorbed by -1.0
+064 neg_one_plus_neg_min_sub rm=RDN a=bff0000000000000 b=8000000000000001 exp=bff0000000000001 flags=01 note=tiny negative addend absorbed by -1.0
+065 neg_one_plus_neg_min_sub rm=RUP a=bff0000000000000 b=8000000000000001 exp=bff0000000000000 flags=01 note=tiny negative addend absorbed by -1.0
+066 neg_one_plus_neg_min_sub rm=RMM a=bff0000000000000 b=8000000000000001 exp=bff0000000000000 flags=01 note=tiny negative addend absorbed by -1.0
