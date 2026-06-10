@@ -417,23 +417,22 @@ wire div_iready_a;
 wire div_iready_b;
 
 wire div_ovalid;
-wire div_ovalid_f;
 wire div_oready = o_ready;
 
-buf #(1) u_buf (div_ovalid, div_ovalid_f);
-
 wire [FDATA_BITS-1:0] div_result    ;
-wire [           3:0] div_res_fflags;
+wire [           4:0] div_res_fflags;
 
 fdiv FDIV(
 	.aclk                (clk                 ),
+	.areset              (rst                 ),
 	.s_axis_a_tvalid     (div_ivalid          ),
 	.s_axis_a_tready     (div_iready_a        ),
 	.s_axis_a_tdata      (s0_fina             ),
 	.s_axis_b_tvalid     (div_ivalid          ),
 	.s_axis_b_tready     (div_iready_b        ),
 	.s_axis_b_tdata      (s0_finb             ),
-	.m_axis_result_tvalid(div_ovalid_f        ),
+	.s_axis_frm          (s0_frm              ),
+	.m_axis_result_tvalid(div_ovalid          ),
 	.m_axis_result_tready(div_oready          ),
 	.m_axis_result_tdata (div_result          ),
 	.m_axis_result_tuser (div_res_fflags      ) 
@@ -750,7 +749,7 @@ assign fresult = fadd_d_valid || fsub_d_valid || fmul_d_valid ? fpu_result      
 
 assign fflags = fadd_d_valid || fsub_d_valid                ? s4_add_res_fflags      :
                 fmul_d_valid                                ? s4_mul_res_fflags      :
-                div_ovalid                                  ? {div_res_fflags, 1'b1} :
+                div_ovalid                                  ? div_res_fflags         :
                 fsgnj_d || fsgnjn_d || fsgnjx_d || fclass_d ? 5'b0                   :
                 feq_d                                       ? feq_fflags             :
                 flt_d                                       ? flt_fflags             :

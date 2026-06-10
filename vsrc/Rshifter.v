@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module Rshifter (
     input  [31:0] data_in,
     input  [5:0] shamt,      // 移位量
